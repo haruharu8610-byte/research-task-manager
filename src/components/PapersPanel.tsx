@@ -37,6 +37,8 @@ export default function PapersPanel({ authToken }: Props) {
   const [retmax, setRetmax] = useState("20");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<Paper[]>([]);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [library, setLibrary] = useState<Paper[]>([]);
   const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
   const [activeTab, setActiveTab] = useState<"search" | "library">("search");
@@ -52,6 +54,8 @@ export default function PapersPanel({ authToken }: Props) {
 
   useEffect(() => {
     fetchLibrary();
+    const stored = localStorage.getItem("paper_search_history");
+    if (stored) setSearchHistory(JSON.parse(stored));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
 
@@ -65,14 +69,29 @@ export default function PapersPanel({ authToken }: Props) {
     }
   };
 
-  const handleSearch = async () => {
-    if (!query.trim()) return;
+  const handleSearch = async (q?: string) => {
+    const searchQuery = q ?? query;
+    if (!searchQuery.trim()) return;
+    if (q) setQuery(q);
+    setShowHistory(false);
     setSearching(true);
     setResults([]);
-    const res = await fetch(`/api/papers/search?q=${encodeURIComponent(query)}&sort=${sort}&retmax=${retmax}`);
+
+    // 検索履歴に追加（重複除去・最大20件）
+    const newHistory = [searchQuery, ...searchHistory.filter(h => h !== searchQuery)].slice(0, 20);
+    setSearchHistory(newHistory);
+    localStorage.setItem("paper_search_history", JSON.stringify(newHistory));
+
+    const res = await fetch(`/api/papers/search?q=${encodeURIComponent(searchQuery)}&sort=${sort}&retmax=${retmax}`);
     const data = await res.json();
     setResults(data.papers ?? []);
     setSearching(false);
+  };
+
+  const handleDeleteHistory = (item: string) => {
+    const newHistory = searchHistory.filter(h => h !== item);
+    setSearchHistory(newHistory);
+    localStorage.setItem("paper_search_history", JSON.stringify(newHistory));
   };
 
   const handleSave = async (paper: Paper) => {
@@ -157,22 +176,60 @@ export default function PapersPanel({ authToken }: Props) {
         {activeTab === "search" ? (
           <div className="flex-1 bg-white border rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="p-3 border-b space-y-2">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="キーワード・タイトルで検索"
-                  className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  onClick={handleSearch}
-                  disabled={searching || !query.trim()}
-                  className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                >
-                  {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                </button>
+              <div className="relative">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onFocus={() => setShowHistory(true)}
+                    onBlur={() => setTimeout(() => setShowHistory(false), 150)}
+                    onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                    placeholder="キーワード・タイトルで検索"
+                    className="flex-1 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    onClick={() => handleSearch()}
+                    disabled={searching || !query.trim()}
+                    className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </button>
+                </div>
+                {/* 検索履歴ドロップダウン */}
+                {showHistory && searchHistory.length > 0 && (
+                  <div className="absolute top-full left-0 right-10 bg-white border rounded-xl shadow-lg z-20 mt-1 overflow-hidden">
+                    <div className="px-3 py-1.5 border-b flex items-center justify-between">
+                      <span className="text-xs text-gray-400 font-medium">検索履歴</span>
+                      <button
+                        onClick={() => { setSearchHistory([]); localStorage.removeItem("paper_search_history"); }}
+                        className="text-xs text-red-400 hover:text-red-600"
+                      >
+                        全削除
+                      </button>
+                    </div>
+                    {searchHistory.map((item) => (
+                      <div
+                        key={item}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 cursor-pointer group"
+                      >
+                        <Search className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                        <span
+                          className="flex-1 text-sm text-gray-700 truncate"
+                          onClick={() => handleSearch(item)}
+                        >
+                          {item}
+                        </span>
+                        <button
+                          onClick={() => handleDeleteHistory(item)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="flex gap-2">
                 <select
