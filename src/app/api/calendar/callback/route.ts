@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
   if (!code) return NextResponse.redirect(`${origin}/?error=no_code`);
 
   const tokens = await exchangeCodeForTokens(code);
-  if (!tokens.access_token) return NextResponse.redirect(`${origin}/?error=token_failed`);
+  console.error("Token exchange result:", JSON.stringify(tokens));
+  if (!tokens.access_token) return NextResponse.redirect(`${origin}/?error=token_failed&detail=${encodeURIComponent(tokens.error ?? "")}`);
 
   // stateにユーザートークンが入っている
   let userId: string | null = null;
