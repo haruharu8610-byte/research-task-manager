@@ -52,18 +52,24 @@ export async function createCalendarEvent(
   accessToken: string,
   title: string,
   description: string,
-  dueDate: string,
-  isDateTime = false
+  startDate: string,
+  isDateTime = false,
+  endDate?: string
 ): Promise<string> {
-  const timeEntry = isDateTime
-    ? { dateTime: dueDate, timeZone: "Asia/Tokyo" }
-    : { date: dueDate };
+  let startEntry, endEntry;
+  if (isDateTime) {
+    startEntry = { dateTime: startDate, timeZone: "Asia/Tokyo" };
+    endEntry = { dateTime: endDate ?? startDate, timeZone: "Asia/Tokyo" };
+  } else {
+    startEntry = { date: startDate };
+    endEntry = { date: endDate ?? startDate };
+  }
 
   const event = {
     summary: title,
     description,
-    start: timeEntry,
-    end: timeEntry,
+    start: startEntry,
+    end: endEntry,
     reminders: {
       useDefault: false,
       overrides: [{ method: "popup", minutes: 30 }],
@@ -81,4 +87,14 @@ export async function createCalendarEvent(
 
   const data = await res.json();
   return data.id;
+}
+
+export async function deleteCalendarEvent(
+  accessToken: string,
+  eventId: string
+): Promise<void> {
+  await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
 }

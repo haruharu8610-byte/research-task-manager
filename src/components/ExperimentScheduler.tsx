@@ -3,12 +3,20 @@
 import { useState } from "react";
 import { CalendarDays, Plus, Trash2, FlaskConical, Clock, CheckCircle } from "lucide-react";
 
+interface CalendarEventIds {
+  p: string;
+  h: string;
+  exp: string;
+}
+
 interface ExperimentSchedule {
   id: string;
   name: string;
-  experimentDateTime: string; // ISO string
+  experimentDateTime: string;
+  experimentEndDateTime: string;
   hoursBeforeH: number;
   calendarAdded: boolean;
+  calendarEventIds?: CalendarEventIds;
 }
 
 interface Props {
@@ -18,8 +26,7 @@ interface Props {
 function calcInjections(experimentDateTime: string, hoursBeforeH: number) {
   const expDate = new Date(experimentDateTime);
   const hDate = new Date(expDate.getTime() - hoursBeforeH * 60 * 60 * 1000);
-  const pDate = new Date(hDate.getTime() - 2 * 24 * 60 * 60 * 1000); // H注射と同時刻の3日前 = H - 2日 (H自体が1日前なので合計3日前)
-  // P = 実験の(hoursBeforeH + 48)時間前 = H注射と同じ時刻で2日前
+  const pDate = new Date(hDate.getTime() - 2 * 24 * 60 * 60 * 1000);
   return { hDate, pDate };
 }
 
@@ -34,9 +41,13 @@ function formatDateTime(date: Date) {
   });
 }
 
-function toDatetimeLocal(date: Date) {
+// datetime-local入力用: 指定時刻から指定時間後のdatetime-local文字列を返す
+function addHoursToDatetimeLocal(dtLocal: string, hours: number): string {
+  if (!dtLocal) return "";
+  const d = new Date(dtLocal);
+  d.setHours(d.getHours() + hours);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export default function ExperimentScheduler({ authToken }: Props) {
@@ -44,8 +55,10 @@ export default function ExperimentScheduler({ authToken }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState("");
   const [experimentDateTime, setExperimentDateTime] = useState("");
+  const [experimentEndDateTime, setExperimentEndDateTime] = useState("");
   const [hoursBeforeH, setHoursBeforeH] = useState(16);
   const [adding, setAdding] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -59,24 +72,58 @@ export default function ExperimentScheduler({ authToken }: Props) {
     return h;
   };
 
+  const handleExperimentStartChange = (value: string) => {
+    setExperimentDateTime(value);
+    // 終了時刻が未設定または以前の開始時刻から自動設定されていた場合、7時間後をデフォルトにセット
+    if (value) {
+      setExperimentEndDateTime(addHoursToDatetimeLocal(value, 7));
+    } else {
+      setExperimentEndDateTime("");
+    }
+  };
+
   const handleAdd = () => {
     if (!name.trim() || !experimentDateTime) return;
+    const endDt = experimentEndDateTime || addHoursToDatetimeLocal(experimentDateTime, 7);
     const newSchedule: ExperimentSchedule = {
       id: crypto.randomUUID(),
       name: name.trim(),
       experimentDateTime,
+      experimentEndDateTime: endDt,
       hoursBeforeH,
       calendarAdded: false,
     };
     setSchedules((prev) => [newSchedule, ...prev]);
     setName("");
     setExperimentDateTime("");
+    setExperimentEndDateTime("");
     setHoursBeforeH(16);
     setShowForm(false);
   };
 
-  const handleDelete = (id: string) => {
-    setSchedules((prev) => prev.filter((s) => s.id !== id));
+  const handleDelete = async (schedule: ExperimentSchedule) => {
+    setDeleting(schedule.id);
+    try {
+      // カレンダーに登録済みなら削除
+      if (schedule.calendarAdded && schedule.calendarEventIds) {
+        const { p, h, exp } = schedule.calendarEventIds;
+        await Promise.all(
+          [p, h, exp].map((eventId) =>
+            fetch("/api/calendar/sync", {
+              method: "DELETE",
+              headers: authHeaders(),
+              body: JSON.stringify({ eventId }),
+            })
+          )
+        );
+        showToast("スケジュールとGoogleカレンダーの予定を削除しました");
+      } else {
+        showToast("スケジュールを削除しました");
+      }
+      setSchedules((prev) => prev.filter((s) => s.id !== schedule.id));
+    } finally {
+      setDeleting(null);
+    }
   };
 
   const handleAddToCalendar = async (schedule: ExperimentSchedule) => {
@@ -84,26 +131,35 @@ export default function ExperimentScheduler({ authToken }: Props) {
     try {
       const { hDate, pDate } = calcInjections(schedule.experimentDateTime, schedule.hoursBeforeH);
       const expDate = new Date(schedule.experimentDateTime);
+      const expEndDate = new Date(schedule.experimentEndDateTime);
 
       const events = [
         {
+          key: "p" as const,
           title: `【P注射】${schedule.name}`,
           dateTime: pDate.toISOString(),
+          endDateTime: pDate.toISOString(),
           description: `実験「${schedule.name}」のP注射（実験${schedule.hoursBeforeH + 48}時間前）`,
         },
         {
+          key: "h" as const,
           title: `【H注射】${schedule.name}`,
           dateTime: hDate.toISOString(),
+          endDateTime: hDate.toISOString(),
           description: `実験「${schedule.name}」のH注射（実験${schedule.hoursBeforeH}時間前）`,
         },
         {
+          key: "exp" as const,
           title: `【実験】${schedule.name}`,
           dateTime: expDate.toISOString(),
+          endDateTime: expEndDate.toISOString(),
           description: `実験「${schedule.name}」`,
         },
       ];
 
+      const eventIds: Partial<CalendarEventIds> = {};
       let allOk = true;
+
       for (const ev of events) {
         const res = await fetch("/api/calendar/sync", {
           method: "POST",
@@ -112,6 +168,7 @@ export default function ExperimentScheduler({ authToken }: Props) {
             title: ev.title,
             description: ev.description,
             dueDate: ev.dateTime,
+            endDate: ev.endDateTime,
             isDateTime: true,
           }),
         });
@@ -119,12 +176,21 @@ export default function ExperimentScheduler({ authToken }: Props) {
           window.location.href = `/api/calendar/connect?token=${authToken}`;
           return;
         }
-        if (!res.ok) allOk = false;
+        if (res.ok) {
+          const data = await res.json();
+          eventIds[ev.key] = data.eventId;
+        } else {
+          allOk = false;
+        }
       }
 
-      if (allOk) {
+      if (allOk && eventIds.p && eventIds.h && eventIds.exp) {
         setSchedules((prev) =>
-          prev.map((s) => (s.id === schedule.id ? { ...s, calendarAdded: true } : s))
+          prev.map((s) =>
+            s.id === schedule.id
+              ? { ...s, calendarAdded: true, calendarEventIds: eventIds as CalendarEventIds }
+              : s
+          )
         );
         showToast("Googleカレンダーに3件追加しました");
       } else {
@@ -164,18 +230,29 @@ export default function ExperimentScheduler({ authToken }: Props) {
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">実験日時（採卵・観察開始時刻）</label>
-            <input
-              type="datetime-local"
-              value={experimentDateTime}
-              onChange={(e) => setExperimentDateTime(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">実験開始時刻</label>
+              <input
+                type="datetime-local"
+                value={experimentDateTime}
+                onChange={(e) => handleExperimentStartChange(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">実験終了時刻</label>
+              <input
+                type="datetime-local"
+                value={experimentEndDateTime}
+                onChange={(e) => setExperimentEndDateTime(e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              H注射タイミング（実験の何時間前）
+              H注射タイミング（実験開始の何時間前）
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -196,6 +273,7 @@ export default function ExperimentScheduler({ authToken }: Props) {
               <p className="text-xs font-medium text-blue-700 mb-2">自動計算結果：</p>
               {(() => {
                 const { hDate, pDate } = calcInjections(experimentDateTime, hoursBeforeH);
+                const endDt = experimentEndDateTime || addHoursToDatetimeLocal(experimentDateTime, 7);
                 return (
                   <>
                     <div className="flex items-center gap-2 text-sm">
@@ -208,7 +286,9 @@ export default function ExperimentScheduler({ authToken }: Props) {
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium text-xs">実験</span>
-                      <span className="text-gray-700">{formatDateTime(new Date(experimentDateTime))}</span>
+                      <span className="text-gray-700">
+                        {formatDateTime(new Date(experimentDateTime))} 〜 {formatDateTime(new Date(endDt))}
+                      </span>
                     </div>
                   </>
                 );
@@ -218,7 +298,7 @@ export default function ExperimentScheduler({ authToken }: Props) {
 
           <div className="flex gap-2 justify-end">
             <button
-              onClick={() => { setShowForm(false); setName(""); setExperimentDateTime(""); setHoursBeforeH(16); }}
+              onClick={() => { setShowForm(false); setName(""); setExperimentDateTime(""); setExperimentEndDateTime(""); setHoursBeforeH(16); }}
               className="px-4 py-2 text-sm text-gray-600 border rounded-lg hover:bg-gray-50"
             >
               キャンセル
@@ -245,6 +325,7 @@ export default function ExperimentScheduler({ authToken }: Props) {
         {schedules.map((schedule) => {
           const { hDate, pDate } = calcInjections(schedule.experimentDateTime, schedule.hoursBeforeH);
           const expDate = new Date(schedule.experimentDateTime);
+          const expEndDate = new Date(schedule.experimentEndDateTime);
           const now = new Date();
           const isPast = expDate < now;
 
@@ -279,8 +360,10 @@ export default function ExperimentScheduler({ authToken }: Props) {
                     </span>
                   )}
                   <button
-                    onClick={() => handleDelete(schedule.id)}
-                    className="text-gray-400 hover:text-red-500 transition-colors p-1"
+                    onClick={() => handleDelete(schedule)}
+                    disabled={deleting === schedule.id}
+                    className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-50"
+                    title={schedule.calendarAdded ? "スケジュールとカレンダー予定を削除" : "スケジュールを削除"}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -301,7 +384,7 @@ export default function ExperimentScheduler({ authToken }: Props) {
                 <div className="bg-blue-50 rounded-lg p-3">
                   <div className="text-xs font-medium text-blue-700 mb-1">実験（採卵）</div>
                   <div className="text-sm font-semibold text-gray-900">{formatDateTime(expDate)}</div>
-                  <div className="text-xs text-gray-400 mt-0.5">実験日</div>
+                  <div className="text-xs text-gray-400 mt-0.5">〜 {formatDateTime(expEndDate)}</div>
                 </div>
               </div>
             </div>

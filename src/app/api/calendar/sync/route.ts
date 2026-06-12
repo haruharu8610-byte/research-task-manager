@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createCalendarEvent, refreshAccessToken } from "@/lib/google-calendar";
+import { createCalendarEvent, deleteCalendarEvent, refreshAccessToken } from "@/lib/google-calendar";
 import { supabase } from "@/lib/supabase";
 import { getUserFromRequest } from "@/lib/auth";
 
@@ -36,15 +36,26 @@ async function getAccessToken(userId: string | null): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   const userId = await getUserFromRequest(req);
-  const { taskId, title, description, dueDate, isDateTime } = await req.json();
+  const { taskId, title, description, dueDate, endDate, isDateTime } = await req.json();
 
   const accessToken = await getAccessToken(userId);
   if (!accessToken) return NextResponse.json({ error: "Google Calendar未連携" }, { status: 401 });
 
-  const eventId = await createCalendarEvent(accessToken, title, description, dueDate, isDateTime);
+  const eventId = await createCalendarEvent(accessToken, title, description, dueDate, isDateTime, endDate);
   if (taskId) {
     await supabase.from("tasks").update({ calendar_event_id: eventId }).eq("id", taskId);
   }
 
   return NextResponse.json({ eventId });
+}
+
+export async function DELETE(req: NextRequest) {
+  const userId = await getUserFromRequest(req);
+  const { eventId } = await req.json();
+
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) return NextResponse.json({ error: "Google Calendar未連携" }, { status: 401 });
+
+  await deleteCalendarEvent(accessToken, eventId);
+  return NextResponse.json({ success: true });
 }
