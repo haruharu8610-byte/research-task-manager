@@ -20,8 +20,16 @@ export async function GET(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
-    const { data: { user } } = await client.auth.getUser(state);
-    userId = user?.id ?? null;
+    const { data, error: userError } = await client.auth.getUser(state);
+    userId = data?.user?.id ?? null;
+    if (userError || !userId) {
+      console.error("Failed to get user from state:", userError?.message, "state length:", state.length);
+    }
+  }
+
+  if (!userId) {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+    return NextResponse.redirect(`${baseUrl}/?error=user_not_found`);
   }
 
   const baseRecord = {
@@ -29,15 +37,21 @@ export async function GET(req: NextRequest) {
     updated_at: new Date().toISOString(),
   };
 
-  await supabase.from("app_settings").upsert([
+  const { error: upsertError } = await supabase.from("app_settings").upsert([
     { ...baseRecord, key: "google_access_token", value: tokens.access_token },
     { ...baseRecord, key: "google_token_expiry", value: String(Date.now() + (tokens.expires_in ?? 3600) * 1000) },
-  ]);
+  ], { onConflict: "user_id,key" });
+
+  if (upsertError) {
+    console.error("Upsert error:", upsertError.message);
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+    return NextResponse.redirect(`${baseUrl}/?error=db_error`);
+  }
 
   if (tokens.refresh_token) {
     await supabase.from("app_settings").upsert([
       { ...baseRecord, key: "google_refresh_token", value: tokens.refresh_token },
-    ]);
+    ], { onConflict: "user_id,key" });
   }
 
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
