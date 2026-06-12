@@ -81,7 +81,7 @@ export default function AISuggestPanel({ existingTasks, onAddTask }: Props) {
       tags: s.tags,
       research_theme: theme,
     });
-    setAdded((prev) => new Set([...prev, idx]));
+    setAdded((prev) => new Set(Array.from(prev).concat(idx)));
   };
 
   const priorityLabel = { high: "高", medium: "中", low: "低" };
