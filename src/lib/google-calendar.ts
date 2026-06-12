@@ -16,14 +16,18 @@ export function getGoogleAuthUrl(stateToken: string = ""): string {
 }
 
 export async function exchangeCodeForTokens(code: string) {
+  const clientId = process.env.GOOGLE_CLIENT_ID ?? "";
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "";
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI ?? "";
+  console.log("Token exchange - client_id:", clientId.slice(0, 20) + "...", "redirect_uri:", redirectUri, "secret_length:", clientSecret.length);
   const res = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
       code,
-      client_id: process.env.GOOGLE_CLIENT_ID!,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+      client_id: clientId,
+      client_secret: clientSecret,
+      redirect_uri: redirectUri,
       grant_type: "authorization_code",
     }),
   });
