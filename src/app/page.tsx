@@ -17,15 +17,17 @@ import LoginModal from "@/components/LoginModal";
 import PapersPanel from "@/components/PapersPanel";
 import ExperimentScheduler from "@/components/ExperimentScheduler";
 import CalendarPanel from "@/components/CalendarPanel";
+import MessagesPanel from "@/components/MessagesPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, Wallet, Key, LogOut, User, Library, TestTube } from "lucide-react";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail } from "lucide-react";
 
-type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard" | "papers" | "experiment" | "calendar";
+type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard" | "papers" | "experiment" | "calendar" | "messages";
 
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [notesList, setNotesList] = useState<{ id: string; title: string; content: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [noteTask, setNoteTask] = useState<Task | null>(null);
@@ -80,6 +82,10 @@ export default function Home() {
     fetch("/api/calendar/status", { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => setCalendarConnected(d.connected));
+
+    fetch("/api/notes", { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => setNotesList(Array.isArray(d) ? d.map((n: { id: string; title: string; content: string }) => ({ id: n.id, title: n.title, content: n.content })) : []));
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("calendar") === "connected") {
@@ -181,6 +187,7 @@ export default function Home() {
     { id: "papers", label: "論文管理", icon: <Library className="w-4 h-4" /> },
     { id: "experiment", label: "実験スケジュール", icon: <TestTube className="w-4 h-4" /> },
     { id: "calendar", label: "カレンダー", icon: <CalendarDays className="w-4 h-4" /> },
+    { id: "messages", label: "メッセージ", icon: <Mail className="w-4 h-4" /> },
   ];
 
   return (
@@ -343,6 +350,10 @@ export default function Home() {
 
           {activeTab === "calendar" && (
             <CalendarPanel authToken={session?.access_token} />
+          )}
+
+          {activeTab === "messages" && (
+            <MessagesPanel userId={user.id} authToken={session?.access_token} notes={notesList} />
           )}
         </div>
       </main>
