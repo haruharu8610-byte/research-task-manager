@@ -7,10 +7,11 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   const state = req.nextUrl.searchParams.get("state") ?? "";
 
-  if (!code) return NextResponse.redirect(new URL("/?error=no_code", req.url));
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+  if (!code) return NextResponse.redirect(`${origin}/?error=no_code`);
 
   const tokens = await exchangeCodeForTokens(code);
-  if (!tokens.access_token) return NextResponse.redirect(new URL("/?error=token_failed", req.url));
+  if (!tokens.access_token) return NextResponse.redirect(`${origin}/?error=token_failed`);
 
   // stateにユーザートークンが入っている
   let userId: string | null = null;
@@ -39,5 +40,6 @@ export async function GET(req: NextRequest) {
     ]);
   }
 
-  return NextResponse.redirect(new URL("/?calendar=connected", req.url));
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
+  return NextResponse.redirect(`${baseUrl}/?calendar=connected`);
 }
