@@ -16,11 +16,12 @@ import ApiKeyModal from "@/components/ApiKeyModal";
 import LoginModal from "@/components/LoginModal";
 import PapersPanel from "@/components/PapersPanel";
 import ExperimentScheduler from "@/components/ExperimentScheduler";
+import CalendarPanel from "@/components/CalendarPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
 import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, Wallet, Key, LogOut, User, Library, TestTube } from "lucide-react";
 
-type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard" | "papers" | "experiment";
+type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard" | "papers" | "experiment" | "calendar";
 
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
@@ -179,6 +180,7 @@ export default function Home() {
     { id: "notes", label: "研究ノート", icon: <BookOpen className="w-4 h-4" /> },
     { id: "papers", label: "論文管理", icon: <Library className="w-4 h-4" /> },
     { id: "experiment", label: "実験スケジュール", icon: <TestTube className="w-4 h-4" /> },
+    { id: "calendar", label: "カレンダー", icon: <CalendarDays className="w-4 h-4" /> },
   ];
 
   return (
@@ -337,6 +339,10 @@ export default function Home() {
 
           {activeTab === "experiment" && (
             <ExperimentScheduler authToken={session?.access_token} />
+          )}
+
+          {activeTab === "calendar" && (
+            <CalendarPanel authToken={session?.access_token} />
           )}
         </div>
       </main>
