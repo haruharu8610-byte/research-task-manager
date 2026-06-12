@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale/ja";
 
@@ -177,6 +177,49 @@ export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps
     updateSelected({ refs: newRefs });
   };
 
+  const handlePrint = () => {
+    if (!selectedNote) return;
+    const refs = (selectedNote.refs ?? []).map((r, i) =>
+      `<div style="margin-bottom:6px;font-size:12px;">
+        <span style="color:#555;">[${i + 1}]</span>
+        <strong>${r.title}</strong>
+        ${r.authors ? `<span style="color:#666;"> — ${r.authors}${r.year ? ` (${r.year})` : ""}</span>` : ""}
+        <br/><a href="${r.url}" style="color:#2563eb;">${r.url}</a>
+      </div>`
+    ).join("");
+
+    const html = `<!DOCTYPE html><html><head>
+      <meta charset="utf-8"/>
+      <title>${selectedNote.title}</title>
+      <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; color: #1a1a1a; }
+        h1 { font-size: 22px; border-bottom: 2px solid #2563eb; padding-bottom: 8px; }
+        .meta { color: #888; font-size: 12px; margin-bottom: 20px; }
+        .tags span { background: #dbeafe; color: #1d4ed8; border-radius: 999px; padding: 2px 8px; font-size: 11px; margin-right: 4px; }
+        pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.8; }
+        .refs { border-top: 1px solid #e5e7eb; margin-top: 24px; padding-top: 12px; }
+        .refs h2 { font-size: 15px; color: #374151; margin-bottom: 10px; }
+        @media print { body { margin: 20px; } }
+      </style>
+    </head><body>
+      <h1>${selectedNote.title}</h1>
+      <div class="meta">
+        ${selectedNote.note_type === "experiment" ? "🔬 実験記録" : "📓 研究ノート"}
+        　更新日: ${selectedNote.updated_at ? new Date(selectedNote.updated_at).toLocaleDateString("ja-JP") : ""}
+      </div>
+      ${selectedNote.tags?.length ? `<div class="tags">${selectedNote.tags.map(t => `<span>${t}</span>`).join("")}</div><br/>` : ""}
+      <pre>${selectedNote.content}</pre>
+      ${refs ? `<div class="refs"><h2>参考文献</h2>${refs}</div>` : ""}
+    </body></html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 500);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-16">
@@ -256,6 +299,13 @@ export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps
                 placeholder="ノートのタイトル"
               />
               <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrint}
+                  className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                  title="PDFとして保存"
+                >
+                  <Printer className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => handleDelete(selectedNote.id)}
                   className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
