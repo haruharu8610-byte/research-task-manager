@@ -48,16 +48,21 @@ export async function createCalendarEvent(
   accessToken: string,
   title: string,
   description: string,
-  dueDate: string
+  dueDate: string,
+  isDateTime = false
 ): Promise<string> {
+  const timeEntry = isDateTime
+    ? { dateTime: dueDate, timeZone: "Asia/Tokyo" }
+    : { date: dueDate };
+
   const event = {
-    summary: `[研究タスク] ${title}`,
+    summary: title,
     description,
-    start: { date: dueDate },
-    end: { date: dueDate },
+    start: timeEntry,
+    end: timeEntry,
     reminders: {
       useDefault: false,
-      overrides: [{ method: "popup", minutes: 60 * 24 }],
+      overrides: [{ method: "popup", minutes: 30 }],
     },
   };
 

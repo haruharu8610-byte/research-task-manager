@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, BookOpen, Plus, Trash2, Loader2, ExternalLink, Tag, FolderOpen, ChevronDown, ChevronUp } from "lucide-react";
+import { Search, BookOpen, Plus, Trash2, Loader2, ExternalLink, Tag, FolderOpen, ChevronDown, ChevronUp, X } from "lucide-react";
 import clsx from "clsx";
 
 interface Paper {

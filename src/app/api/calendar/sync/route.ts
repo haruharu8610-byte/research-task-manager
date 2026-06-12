@@ -36,13 +36,15 @@ async function getAccessToken(userId: string | null): Promise<string | null> {
 
 export async function POST(req: NextRequest) {
   const userId = await getUserFromRequest(req);
-  const { taskId, title, description, dueDate } = await req.json();
+  const { taskId, title, description, dueDate, isDateTime } = await req.json();
 
   const accessToken = await getAccessToken(userId);
   if (!accessToken) return NextResponse.json({ error: "Google Calendar未連携" }, { status: 401 });
 
-  const eventId = await createCalendarEvent(accessToken, title, description, dueDate);
-  await supabase.from("tasks").update({ calendar_event_id: eventId }).eq("id", taskId);
+  const eventId = await createCalendarEvent(accessToken, title, description, dueDate, isDateTime);
+  if (taskId) {
+    await supabase.from("tasks").update({ calendar_event_id: eventId }).eq("id", taskId);
+  }
 
   return NextResponse.json({ eventId });
 }
