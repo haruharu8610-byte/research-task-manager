@@ -185,26 +185,63 @@ export default function Home() {
       showToast("期限を設定してからカレンダーに追加してください");
       return;
     }
-    const res = await fetch("/api/calendar/sync", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        taskId: task.id,
-        title: task.title,
-        description: task.description,
-        dueDate: task.due_date,
-      }),
-    });
-    if (res.status === 401) {
-      window.location.href = `/api/calendar/connect?token=${session?.access_token}`;
-      return;
-    }
-    const data = await res.json();
-    if (data.eventId) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === task.id ? { ...t, calendar_event_id: data.eventId } : t))
-      );
-      showToast("Googleカレンダーに追加しました");
+
+    // 実験スケジュールに紐づいているか確認
+    const schedRes = await fetch("/api/experiment-schedules", { headers: authHeaders() });
+    const schedules = await schedRes.json();
+    const linked = Array.isArray(schedules)
+      ? schedules.find((s: { task_id: string }) => s.task_id === task.id)
+      : null;
+
+    if (linked) {
+      // 実験タスク：P注射・H注射・実験の3件を登録
+      const hoursBeforeH = linked.hours_before_h ?? 16;
+      const expDate = new Date(linked.experiment_datetime);
+      const expEndDate = new Date(linked.experiment_end_datetime);
+      const hDate = new Date(expDate.getTime() - hoursBeforeH * 60 * 60 * 1000);
+      const pDate = new Date(hDate.getTime() - 2 * 24 * 60 * 60 * 1000);
+
+      const events = [
+        { key: "p", title: `【P注射】${task.title}`, dateTime: pDate.toISOString(), endDateTime: pDate.toISOString(), description: `実験「${task.title}」のP注射` },
+        { key: "h", title: `【H注射】${task.title}`, dateTime: hDate.toISOString(), endDateTime: hDate.toISOString(), description: `実験「${task.title}」のH注射` },
+        { key: "exp", title: `【実験】${task.title}`, dateTime: expDate.toISOString(), endDateTime: expEndDate.toISOString(), description: task.description ?? "" },
+      ];
+
+      const eventIds: Record<string, string> = {};
+      let allOk = true;
+      for (const ev of events) {
+        const r = await fetch("/api/calendar/sync", {
+          method: "POST", headers: authHeaders(),
+          body: JSON.stringify({ title: ev.title, description: ev.description, dueDate: ev.dateTime, endDate: ev.endDateTime, isDateTime: true }),
+        });
+        if (r.status === 401) { window.location.href = `/api/calendar/connect?token=${session?.access_token}`; return; }
+        if (r.ok) { const d = await r.json(); eventIds[ev.key] = d.eventId; }
+        else allOk = false;
+      }
+
+      if (allOk) {
+        // 実験スケジュールにカレンダーIDを保存
+        await fetch(`/api/experiment-schedules/${linked.id}`, {
+          method: "PATCH", headers: authHeaders(),
+          body: JSON.stringify({ calendar_added: true, calendar_event_ids: eventIds }),
+        });
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, calendar_event_id: eventIds.exp } : t));
+        showToast("P注射・H注射・実験の3件をカレンダーに追加しました");
+      } else {
+        showToast("一部の追加に失敗しました");
+      }
+    } else {
+      // 通常タスク：1件のみ登録
+      const r = await fetch("/api/calendar/sync", {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify({ taskId: task.id, title: task.title, description: task.description, dueDate: task.due_date }),
+      });
+      if (r.status === 401) { window.location.href = `/api/calendar/connect?token=${session?.access_token}`; return; }
+      const data = await r.json();
+      if (data.eventId) {
+        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, calendar_event_id: data.eventId } : t));
+        showToast("Googleカレンダーに追加しました");
+      }
     }
   };
 
