@@ -36,6 +36,7 @@ export default function Home() {
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const [highlightNoteId, setHighlightNoteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("tasks");
+  const [experimentTabKey, setExperimentTabKey] = useState(0);
   const [filterStatus, setFilterStatus] = useState<Task["status"] | "all">("all");
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -55,6 +56,7 @@ export default function Home() {
 
   const handleNavigate = (tab: string, id?: string) => {
     setActiveTab(tab as Tab);
+    if (tab === "experiment") setExperimentTabKey(k => k + 1);
     if (tab === "tasks" && id) {
       setFilterStatus("all");
       setHighlightTaskId(id);
@@ -154,9 +156,28 @@ export default function Home() {
   };
 
   const handleDelete = async (id: string) => {
+    // 関連する実験スケジュールを確認してカレンダーごと削除
+    const schedRes = await fetch("/api/experiment-schedules", { headers: authHeaders() });
+    const schedules = await schedRes.json();
+    const linked = Array.isArray(schedules) ? schedules.find((s: { task_id: string; calendar_added: boolean; calendar_event_ids?: { p: string; h: string; exp: string } }) => s.task_id === id) : null;
+
+    if (linked?.calendar_added && linked?.calendar_event_ids) {
+      const { p, h, exp } = linked.calendar_event_ids;
+      await Promise.all([p, h, exp].map((eventId: string) =>
+        fetch("/api/calendar/sync", {
+          method: "DELETE",
+          headers: authHeaders(),
+          body: JSON.stringify({ eventId }),
+        })
+      ));
+    }
+    if (linked) {
+      await fetch(`/api/experiment-schedules/${linked.id}`, { method: "DELETE", headers: authHeaders() });
+    }
+
     await fetch(`/api/tasks/${id}`, { method: "DELETE", headers: authHeaders() });
     setTasks((prev) => prev.filter((t) => t.id !== id));
-    showToast("タスクを削除しました");
+    showToast(linked?.calendar_added ? "タスクとカレンダー予定を削除しました" : "タスクを削除しました");
   };
 
   const handleSyncCalendar = async (task: Task) => {
@@ -287,7 +308,7 @@ export default function Home() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); if (tab.id === "experiment") setExperimentTabKey(k => k + 1); }}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === tab.id ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
               }`}
@@ -367,7 +388,7 @@ export default function Home() {
           )}
 
           {activeTab === "experiment" && (
-            <ExperimentScheduler authToken={session?.access_token} />
+            <ExperimentScheduler key={experimentTabKey} authToken={session?.access_token} />
           )}
 
           {activeTab === "calendar" && (
