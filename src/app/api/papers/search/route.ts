@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const query = req.nextUrl.searchParams.get("q");
+  const sort = req.nextUrl.searchParams.get("sort") ?? "relevance";
+  const retmax = req.nextUrl.searchParams.get("retmax") ?? "20";
   if (!query) return NextResponse.json({ papers: [] });
 
   // PubMed検索でIDリストを取得
   const searchRes = await fetch(
-    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=20&retmode=json&sort=relevance`
+    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(query)}&retmax=${retmax}&retmode=json&sort=${sort}`
   );
   const searchData = await searchRes.json();
   const ids: string[] = searchData.esearchresult?.idlist ?? [];

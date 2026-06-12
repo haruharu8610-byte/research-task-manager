@@ -33,6 +33,8 @@ const STATUS_COLOR = {
 
 export default function PapersPanel({ authToken }: Props) {
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState("relevance");
+  const [retmax, setRetmax] = useState("20");
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<Paper[]>([]);
   const [library, setLibrary] = useState<Paper[]>([]);
@@ -67,7 +69,7 @@ export default function PapersPanel({ authToken }: Props) {
     if (!query.trim()) return;
     setSearching(true);
     setResults([]);
-    const res = await fetch(`/api/papers/search?q=${encodeURIComponent(query)}`);
+    const res = await fetch(`/api/papers/search?q=${encodeURIComponent(query)}&sort=${sort}&retmax=${retmax}`);
     const data = await res.json();
     setResults(data.papers ?? []);
     setSearching(false);
@@ -154,7 +156,7 @@ export default function PapersPanel({ authToken }: Props) {
 
         {activeTab === "search" ? (
           <div className="flex-1 bg-white border rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="p-3 border-b">
+            <div className="p-3 border-b space-y-2">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -171,6 +173,27 @@ export default function PapersPanel({ authToken }: Props) {
                 >
                   {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 </button>
+              </div>
+              <div className="flex gap-2">
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value)}
+                  className="flex-1 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="relevance">関連度順</option>
+                  <option value="pub_date">新しい順</option>
+                  <option value="cited">引用数順</option>
+                  <option value="pubdate">発行日順</option>
+                </select>
+                <select
+                  value={retmax}
+                  onChange={(e) => setRetmax(e.target.value)}
+                  className="border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="10">10件</option>
+                  <option value="20">20件</option>
+                  <option value="50">50件</option>
+                </select>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
