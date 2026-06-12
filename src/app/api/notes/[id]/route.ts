@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { getUserFromRequest } from "@/lib/auth";
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+  const userId = await getUserFromRequest(req);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const body = await req.json();
   const { data, error } = await supabase
     .from("research_notes")
     .update({ ...body, updated_at: new Date().toISOString() })
     .eq("id", params.id)
+    .eq("user_id", userId)
     .select()
     .single();
 
@@ -17,14 +19,15 @@ export async function PATCH(
   return NextResponse.json(data);
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+  const userId = await getUserFromRequest(req);
+  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { error } = await supabase
     .from("research_notes")
     .delete()
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .eq("user_id", userId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });

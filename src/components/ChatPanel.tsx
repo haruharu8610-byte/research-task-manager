@@ -9,9 +9,15 @@ import { getApiHeaders } from "@/lib/api";
 
 interface Props {
   tasks: Task[];
+  userId?: string;
+  authToken?: string;
 }
 
-export default function ChatPanel({ tasks }: Props) {
+export default function ChatPanel({ tasks, authToken }: Props) {
+  const authHeaders = (): HeadersInit => ({
+    ...getApiHeaders() as Record<string, string>,
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  });
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,7 +60,7 @@ export default function ChatPanel({ tasks }: Props) {
   // 履歴をDBから読み込む
   useEffect(() => {
     const fetchHistory = async () => {
-      const res = await fetch("/api/ai/chat");
+      const res = await fetch("/api/ai/chat", { headers: authHeaders() });
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         setMessages(data);
@@ -95,7 +101,7 @@ export default function ChatPanel({ tasks }: Props) {
 
     const res = await fetch("/api/ai/chat", {
       method: "POST",
-      headers: getApiHeaders(),
+      headers: authHeaders(),
       body: JSON.stringify({ messages: history, tasks }),
     });
 
@@ -115,7 +121,7 @@ export default function ChatPanel({ tasks }: Props) {
 
   const handleClear = async () => {
     if (!confirm("チャット履歴を全て削除しますか？")) return;
-    await fetch("/api/ai/chat", { method: "DELETE" });
+    await fetch("/api/ai/chat", { method: "DELETE", headers: authHeaders() });
     setMessages([{
       id: "init",
       role: "assistant",

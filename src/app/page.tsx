@@ -13,11 +13,15 @@ import AISuggestPanel from "@/components/AISuggestPanel";
 import ChatPanel from "@/components/ChatPanel";
 import StatsBar from "@/components/StatsBar";
 import ApiKeyModal from "@/components/ApiKeyModal";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, PowerOff, Wallet, Key } from "lucide-react";
+import LoginModal from "@/components/LoginModal";
+import { useAuth } from "@/contexts/AuthContext";
+import { getApiHeaders } from "@/lib/api";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, Wallet, Key, LogOut, User } from "lucide-react";
 
 type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard";
 
 export default function Home() {
+  const { user, session, loading, signOut } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -26,6 +30,23 @@ export default function Home() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [highlightTaskId, setHighlightTaskId] = useState<string | null>(null);
   const [highlightNoteId, setHighlightNoteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>("tasks");
+  const [filterStatus, setFilterStatus] = useState<Task["status"] | "all">("all");
+  const [calendarConnected, setCalendarConnected] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const authHeaders = useCallback((): HeadersInit => {
+    const base = getApiHeaders() as Record<string, string>;
+    if (session?.access_token) {
+      base["Authorization"] = `Bearer ${session.access_token}`;
+    }
+    return base;
+  }, [session]);
+
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const handleNavigate = (tab: string, id?: string) => {
     setActiveTab(tab as Tab);
@@ -42,26 +63,18 @@ export default function Home() {
       setTimeout(() => setHighlightNoteId(null), 3000);
     }
   };
-  const [activeTab, setActiveTab] = useState<Tab>("tasks");
-  const [filterStatus, setFilterStatus] = useState<Task["status"] | "all">("all");
-  const [calendarConnected, setCalendarConnected] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const fetchTasks = useCallback(async () => {
-    const res = await fetch("/api/tasks");
+    if (!session) return;
+    const res = await fetch("/api/tasks", { headers: authHeaders() });
     const data = await res.json();
-    setTasks(data);
-  }, []);
+    setTasks(Array.isArray(data) ? data : []);
+  }, [session, authHeaders]);
 
   useEffect(() => {
+    if (!session) return;
     fetchTasks();
-    // カレンダー連携状態をSupabaseから確認
-    fetch("/api/calendar/status")
+    fetch("/api/calendar/status", { headers: authHeaders() })
       .then((r) => r.json())
       .then((d) => setCalendarConnected(d.connected));
 
@@ -71,14 +84,14 @@ export default function Home() {
       showToast("Googleカレンダーと連携しました！");
       window.history.replaceState({}, "", "/");
     }
-  }, [fetchTasks]);
+  }, [session, fetchTasks, authHeaders]);
 
   const handleAddTask = async (
     task: Omit<Task, "id" | "created_at" | "updated_at" | "calendar_event_id">
   ) => {
     const res = await fetch("/api/tasks", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify(task),
     });
     const created = await res.json();
@@ -90,7 +103,7 @@ export default function Home() {
   const handleStatusChange = async (id: string, status: Task["status"]) => {
     const res = await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({ status }),
     });
     const updated = await res.json();
@@ -100,7 +113,7 @@ export default function Home() {
   const handleEdit = async (id: string, updates: Partial<Task>) => {
     const res = await fetch(`/api/tasks/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify(updates),
     });
     const updated = await res.json();
@@ -110,7 +123,7 @@ export default function Home() {
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+    await fetch(`/api/tasks/${id}`, { method: "DELETE", headers: authHeaders() });
     setTasks((prev) => prev.filter((t) => t.id !== id));
     showToast("タスクを削除しました");
   };
@@ -122,7 +135,7 @@ export default function Home() {
     }
     const res = await fetch("/api/calendar/sync", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify({
         taskId: task.id,
         title: task.title,
@@ -131,7 +144,7 @@ export default function Home() {
       }),
     });
     if (res.status === 401) {
-      window.location.href = "/api/calendar/connect";
+      window.location.href = `/api/calendar/connect?token=${session?.access_token}`;
       return;
     }
     const data = await res.json();
@@ -142,6 +155,16 @@ export default function Home() {
       showToast("Googleカレンダーに追加しました");
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return <LoginModal />;
 
   const filteredTasks =
     filterStatus === "all" ? tasks : tasks.filter((t) => t.status === filterStatus);
@@ -156,7 +179,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -166,7 +188,7 @@ export default function Home() {
           <div className="flex items-center gap-3">
             {!calendarConnected ? (
               <a
-                href="/api/calendar/connect"
+                href={`/api/calendar/connect?token=${session?.access_token}`}
                 className="flex items-center gap-1.5 text-sm text-gray-600 border rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
               >
                 <CalendarDays className="w-4 h-4" />
@@ -195,18 +217,6 @@ export default function Home() {
               残高確認
             </a>
             <button
-              onClick={async () => {
-                if (confirm("アプリを終了しますか？")) {
-                  await fetch("/api/shutdown", { method: "POST" });
-                  window.close();
-                }
-              }}
-              className="flex items-center gap-1.5 text-sm text-red-500 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 transition-colors"
-            >
-              <PowerOff className="w-4 h-4" />
-              終了
-            </button>
-            <button
               onClick={() => setShowSearch(true)}
               className="flex items-center gap-1.5 text-sm text-gray-600 border rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
             >
@@ -220,24 +230,31 @@ export default function Home() {
               <Plus className="w-4 h-4" />
               タスク追加
             </button>
+            <div className="flex items-center gap-2 border-l pl-3">
+              <User className="w-4 h-4 text-gray-400" />
+              <span className="text-xs text-gray-500 max-w-[120px] truncate">{user.email}</span>
+              <button
+                onClick={signOut}
+                className="text-gray-400 hover:text-red-500 transition-colors"
+                title="ログアウト"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6">
-        {/* Stats */}
         <StatsBar tasks={tasks} />
 
-        {/* Tabs */}
         <div className="flex gap-1 mt-6 bg-white border rounded-xl p-1 w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-600 hover:bg-gray-100"
+                activeTab === tab.id ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               {tab.icon}
@@ -246,20 +263,16 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Content */}
         <div className="mt-4">
           {activeTab === "tasks" && (
             <div>
-              {/* Filter */}
               <div className="flex gap-2 mb-4">
                 {(["all", "todo", "in_progress", "done"] as const).map((s) => (
                   <button
                     key={s}
                     onClick={() => setFilterStatus(s)}
                     className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      filterStatus === s
-                        ? "bg-blue-600 text-white"
-                        : "bg-white border text-gray-600 hover:bg-gray-50"
+                      filterStatus === s ? "bg-blue-600 text-white" : "bg-white border text-gray-600 hover:bg-gray-50"
                     }`}
                   >
                     {{ all: "すべて", todo: "未着手", in_progress: "進行中", done: "完了" }[s]}
@@ -304,52 +317,26 @@ export default function Home() {
 
           {activeTab === "chat" && (
             <div className="h-[600px]">
-              <ChatPanel tasks={tasks} />
+              <ChatPanel tasks={tasks} userId={user.id} authToken={session?.access_token} />
             </div>
           )}
 
-          {activeTab === "notes" && <NotesPanel initialNoteId={highlightNoteId} />}
+          {activeTab === "notes" && (
+            <NotesPanel initialNoteId={highlightNoteId} userId={user.id} authToken={session?.access_token} />
+          )}
 
           {activeTab === "dashboard" && <DashboardPanel tasks={tasks} />}
         </div>
       </main>
 
-      {/* Add Modal */}
-      {showAddModal && (
-        <AddTaskModal onAdd={handleAddTask} onClose={() => setShowAddModal(false)} />
-      )}
-
-      {/* Edit Modal */}
-      {editingTask && (
-        <EditTaskModal
-          task={editingTask}
-          onSave={handleEdit}
-          onClose={() => setEditingTask(null)}
-        />
-      )}
-
-      {/* Task Note Modal */}
-      {noteTask && (
-        <TaskNoteModal
-          task={noteTask}
-          onClose={() => setNoteTask(null)}
-        />
-      )}
-
-      {/* API Key Modal */}
+      {showAddModal && <AddTaskModal onAdd={handleAddTask} onClose={() => setShowAddModal(false)} />}
+      {editingTask && <EditTaskModal task={editingTask} onSave={handleEdit} onClose={() => setEditingTask(null)} />}
+      {noteTask && <TaskNoteModal task={noteTask} onClose={() => setNoteTask(null)} userId={user.id} authToken={session?.access_token} />}
       {showApiKey && <ApiKeyModal onClose={() => setShowApiKey(false)} />}
+      {showSearch && <SearchModal onClose={() => setShowSearch(false)} onNavigate={handleNavigate} />}
 
-      {/* Search Modal */}
-      {showSearch && (
-        <SearchModal
-          onClose={() => setShowSearch(false)}
-          onNavigate={handleNavigate}
-        />
-      )}
-
-      {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm shadow-lg animate-fade-in">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-5 py-2.5 rounded-full text-sm shadow-lg">
           {toast}
         </div>
       )}

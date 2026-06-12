@@ -52,7 +52,13 @@ const EXPERIMENT_TEMPLATE = `## 実験記録
 ### 次のステップ
 `;
 
-export default function NotesPanel({ initialNoteId }: { initialNoteId?: string | null }) {
+interface NotesPanelProps {
+  initialNoteId?: string | null;
+  userId?: string;
+  authToken?: string;
+}
+
+export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,12 +67,18 @@ export default function NotesPanel({ initialNoteId }: { initialNoteId?: string |
   const [refUrl, setRefUrl] = useState("");
   const [refLoading, setRefLoading] = useState(false);
 
+  const headers = (): HeadersInit => ({
+    "Content-Type": "application/json",
+    ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+  });
+
   useEffect(() => {
     fetchNotes();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken]);
 
   const fetchNotes = async () => {
-    const res = await fetch("/api/notes");
+    const res = await fetch("/api/notes", { headers: headers() });
     const data = await res.json();
     setNotes(data);
     setLoading(false);
@@ -79,7 +91,7 @@ export default function NotesPanel({ initialNoteId }: { initialNoteId?: string |
   const handleNew = async (type: "free" | "experiment") => {
     const res = await fetch("/api/notes", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: headers(),
       body: JSON.stringify({
         title: type === "experiment" ? "実験記録 " + new Date().toLocaleDateString("ja-JP") : "無題のノート",
         content: type === "experiment" ? EXPERIMENT_TEMPLATE : "",
@@ -99,7 +111,7 @@ export default function NotesPanel({ initialNoteId }: { initialNoteId?: string |
     setSaving(true);
     const res = await fetch(`/api/notes/${selectedNote.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: headers(),
       body: JSON.stringify({
         title: selectedNote.title,
         content: selectedNote.content,
@@ -118,7 +130,7 @@ export default function NotesPanel({ initialNoteId }: { initialNoteId?: string |
 
   const handleDelete = async (id: string) => {
     if (!confirm("このノートを削除しますか？")) return;
-    await fetch(`/api/notes/${id}`, { method: "DELETE" });
+    await fetch(`/api/notes/${id}`, { method: "DELETE", headers: headers() });
     setNotes((prev) => prev.filter((n) => n.id !== id));
     if (selectedNote?.id === id) setSelectedNote(null);
   };

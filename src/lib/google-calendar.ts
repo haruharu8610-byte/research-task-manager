@@ -2,7 +2,7 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 
-export function getGoogleAuthUrl(): string {
+export function getGoogleAuthUrl(stateToken: string = ""): string {
   const params = new URLSearchParams({
     client_id: process.env.GOOGLE_CLIENT_ID!,
     redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
@@ -10,6 +10,7 @@ export function getGoogleAuthUrl(): string {
     scope: "https://www.googleapis.com/auth/calendar.events",
     access_type: "offline",
     prompt: "consent",
+    state: stateToken,
   });
   return `${GOOGLE_AUTH_URL}?${params}`;
 }
@@ -56,9 +57,7 @@ export async function createCalendarEvent(
     end: { date: dueDate },
     reminders: {
       useDefault: false,
-      overrides: [
-        { method: "popup", minutes: 60 * 24 }, // 1日前
-      ],
+      overrides: [{ method: "popup", minutes: 60 * 24 }],
     },
   };
 
@@ -73,14 +72,4 @@ export async function createCalendarEvent(
 
   const data = await res.json();
   return data.id;
-}
-
-export async function deleteCalendarEvent(
-  accessToken: string,
-  eventId: string
-): Promise<void> {
-  await fetch(`${CALENDAR_API}/calendars/primary/events/${eventId}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
 }
