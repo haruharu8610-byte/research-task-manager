@@ -5,7 +5,7 @@ import { Task } from "@/types";
 import { X } from "lucide-react";
 
 interface Props {
-  onAdd: (task: Omit<Task, "id" | "created_at" | "updated_at" | "calendar_event_id">) => void;
+  onAdd: (task: Omit<Task, "id" | "created_at" | "updated_at" | "calendar_event_id">, isExperiment?: boolean, experimentTime?: string) => void;
   onClose: () => void;
 }
 
@@ -16,10 +16,13 @@ export default function AddTaskModal({ onAdd, onClose }: Props) {
   const [dueDate, setDueDate] = useState("");
   const [tags, setTags] = useState("");
   const [researchTheme, setResearchTheme] = useState("");
+  const [isExperiment, setIsExperiment] = useState(false);
+  const [experimentTime, setExperimentTime] = useState("09:00");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+    const experimentDatetime = isExperiment && dueDate ? `${dueDate}T${experimentTime}` : undefined;
     onAdd({
       title: title.trim(),
       description: description.trim(),
@@ -28,7 +31,7 @@ export default function AddTaskModal({ onAdd, onClose }: Props) {
       due_date: dueDate || null,
       tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
       research_theme: researchTheme.trim(),
-    });
+    }, isExperiment, experimentDatetime);
   };
 
   return (
@@ -101,6 +104,35 @@ export default function AddTaskModal({ onAdd, onClose }: Props) {
               className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="例: タンパク質折り畳み解析"
             />
+          </div>
+
+          <div className="border rounded-lg p-3 space-y-3 bg-orange-50">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isExperiment}
+                onChange={e => setIsExperiment(e.target.checked)}
+                className="accent-orange-500 w-4 h-4"
+              />
+              <span className="text-sm font-medium text-orange-700">🔬 実験タスク（P・H注射スケジュールを自動登録）</span>
+            </label>
+            {isExperiment && (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">実験開始時刻（期限日の何時に実験を行うか）</label>
+                <input
+                  type="time"
+                  value={experimentTime}
+                  onChange={e => setExperimentTime(e.target.value)}
+                  className="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+                {dueDate && (
+                  <p className="text-xs text-orange-600 mt-1">
+                    実験日: {dueDate} {experimentTime} → H注射: 16時間前・P注射: 64時間前に自動登録
+                  </p>
+                )}
+                {!dueDate && <p className="text-xs text-gray-400 mt-1">※ 期限を設定すると注射スケジュールが自動登録されます</p>}
+              </div>
+            )}
           </div>
 
           <div>

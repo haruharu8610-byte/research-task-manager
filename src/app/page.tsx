@@ -96,7 +96,9 @@ export default function Home() {
   }, [session, fetchTasks, authHeaders]);
 
   const handleAddTask = async (
-    task: Omit<Task, "id" | "created_at" | "updated_at" | "calendar_event_id">
+    task: Omit<Task, "id" | "created_at" | "updated_at" | "calendar_event_id">,
+    isExperiment?: boolean,
+    experimentDatetime?: string
   ) => {
     const res = await fetch("/api/tasks", {
       method: "POST",
@@ -106,7 +108,27 @@ export default function Home() {
     const created = await res.json();
     setTasks((prev) => [created, ...prev]);
     setShowAddModal(false);
-    showToast("タスクを追加しました");
+
+    // 実験タスクの場合は実験スケジュールを自動登録
+    if (isExperiment && experimentDatetime && created.id) {
+      const expStart = new Date(experimentDatetime);
+      const expEnd = new Date(expStart.getTime() + 7 * 60 * 60 * 1000);
+      await fetch("/api/experiment-schedules", {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({
+          task_id: created.id,
+          name: task.title,
+          experiment_datetime: expStart.toISOString(),
+          experiment_end_datetime: expEnd.toISOString(),
+          hours_before_h: 16,
+          calendar_added: false,
+        }),
+      });
+      showToast("タスクと実験スケジュールを追加しました");
+    } else {
+      showToast("タスクを追加しました");
+    }
   };
 
   const handleStatusChange = async (id: string, status: Task["status"]) => {
@@ -358,7 +380,7 @@ export default function Home() {
         </div>
       </main>
 
-      {showAddModal && <AddTaskModal onAdd={handleAddTask} onClose={() => setShowAddModal(false)} />}
+      {showAddModal && <AddTaskModal onAdd={(task, isExp, expDt) => handleAddTask(task, isExp, expDt)} onClose={() => setShowAddModal(false)} />}
       {editingTask && <EditTaskModal task={editingTask} onSave={handleEdit} onClose={() => setEditingTask(null)} />}
       {noteTask && <TaskNoteModal task={noteTask} onClose={() => setNoteTask(null)} userId={user.id} authToken={session?.access_token} />}
       {showApiKey && <ApiKeyModal onClose={() => setShowApiKey(false)} />}
