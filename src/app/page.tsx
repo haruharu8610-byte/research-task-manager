@@ -14,11 +14,12 @@ import ChatPanel from "@/components/ChatPanel";
 import StatsBar from "@/components/StatsBar";
 import ApiKeyModal from "@/components/ApiKeyModal";
 import LoginModal from "@/components/LoginModal";
+import PapersPanel from "@/components/PapersPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, Wallet, Key, LogOut, User } from "lucide-react";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, Wallet, Key, LogOut, User, Library } from "lucide-react";
 
-type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard";
+type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard" | "papers";
 
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
@@ -175,6 +176,7 @@ export default function Home() {
     { id: "suggest", label: "AI提案", icon: <FlaskConical className="w-4 h-4" /> },
     { id: "chat", label: "AI議論", icon: <MessageSquare className="w-4 h-4" /> },
     { id: "notes", label: "研究ノート", icon: <BookOpen className="w-4 h-4" /> },
+    { id: "papers", label: "論文管理", icon: <Library className="w-4 h-4" /> },
   ];
 
   return (
@@ -326,6 +328,10 @@ export default function Home() {
           )}
 
           {activeTab === "dashboard" && <DashboardPanel tasks={tasks} />}
+
+          {activeTab === "papers" && (
+            <PapersPanel authToken={session?.access_token} />
+          )}
         </div>
       </main>
 
