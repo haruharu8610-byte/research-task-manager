@@ -4,12 +4,12 @@ import { supabase } from "@/lib/supabase";
 import { getUserFromRequest } from "@/lib/auth";
 
 async function getAccessToken(userId: string | null): Promise<string | null> {
-  const query = supabase
+  let query = supabase
     .from("app_settings")
     .select("key, value");
 
-  if (userId) query.eq("user_id", userId);
-  else query.is("user_id", null);
+  if (userId) query = query.eq("user_id", userId);
+  else query = query.is("user_id", null);
 
   const { data } = await query.in("key", ["google_access_token", "google_refresh_token", "google_token_expiry"]);
   if (!data || data.length === 0) return null;
