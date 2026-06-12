@@ -23,11 +23,13 @@ export async function POST(req: NextRequest) {
     .select()
     .single();
 
+  console.log("profiles upsert:", { userId, username, data, error });
+
   if (error) {
-    if (error.message.includes("unique")) {
+    if (error.message.includes("unique") || error.code === "23505") {
       return NextResponse.json({ error: "そのユーザー名は既に使われています" }, { status: 409 });
     }
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
   }
   return NextResponse.json(data);
 }
