@@ -13,36 +13,50 @@ export async function GET(req: NextRequest) {
 
   if (ids.length === 0) return NextResponse.json({ papers: [] });
 
-  // IDから論文詳細を取得
+  // PubMed Summary APIで各論文の情報をJSON取得
+  const summaryRes = await fetch(
+    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(",")}&retmode=json`
+  );
+  const summaryData = await summaryRes.json();
+  const result = summaryData.result ?? {};
+
+  // アブストはefetchで別途取得
   const fetchRes = await fetch(
-    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids.join(",")}&retmode=xml`
+    `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${ids.join(",")}&rettype=abstract&retmode=xml`
   );
   const xml = await fetchRes.text();
 
-  // XMLをパース
   const papers = ids.map((id) => {
-    const articleRegex = new RegExp(`<PubmedArticle>[\\s\\S]*?<PMID[^>]*>${id}</PMID>[\\s\\S]*?</PubmedArticle>`);
-    const articleMatch = xml.match(articleRegex);
-    if (!articleMatch) return null;
-    const article = articleMatch[0];
+    const doc = result[id];
+    if (!doc) return null;
 
-    const title = article.match(/<ArticleTitle>([\s\S]*?)<\/ArticleTitle>/)?.[1]?.replace(/<[^>]+>/g, "") ?? "タイトル不明";
-    const abstract = article.match(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/)?.[1]?.replace(/<[^>]+>/g, "") ?? "";
-    const journal = article.match(/<Title>([\s\S]*?)<\/Title>/)?.[1]?.replace(/<[^>]+>/g, "") ?? "";
-    const year = article.match(/<PubDate>[\s\S]*?<Year>(\d{4})<\/Year>/)?.[1] ?? "";
+    const title = doc.title ?? "タイトル不明";
+    const authors = (doc.authors ?? []).slice(0, 5).map((a: { name: string }) => a.name).join(", ");
+    const journal = doc.fulljournalname ?? doc.source ?? "";
+    const year = doc.pubdate?.split(" ")?.[0] ?? "";
 
-    const authorMatches = Array.from(article.matchAll(/<Author[^>]*>[\s\S]*?<LastName>([\s\S]*?)<\/LastName>[\s\S]*?(?:<ForeName>([\s\S]*?)<\/ForeName>)?[\s\S]*?<\/Author>/g));
-    const authors = authorMatches.slice(0, 5).map((m) => `${m[1]} ${m[2] ?? ""}`.trim()).join(", ");
+    // XMLからアブストを抽出（IDで該当部分を特定）
+    const pmidIdx = xml.indexOf(`<PMID Version="1">${id}</PMID>`);
+    let abstract = "";
+    if (pmidIdx !== -1) {
+      const articleStart = xml.lastIndexOf("<PubmedArticle>", pmidIdx);
+      const articleEnd = xml.indexOf("</PubmedArticle>", pmidIdx);
+      if (articleStart !== -1 && articleEnd !== -1) {
+        const article = xml.slice(articleStart, articleEnd);
+        const abstracts = Array.from(article.matchAll(/<AbstractText[^>]*>([\s\S]*?)<\/AbstractText>/g));
+        abstract = abstracts.map(m => m[1].replace(/<[^>]+>/g, "")).join(" ").trim();
+      }
+    }
 
-    const doi = article.match(/<ArticleId IdType="doi">([\s\S]*?)<\/ArticleId>/)?.[1] ?? "";
+    const doi = (doc.articleids ?? []).find((a: { idtype: string; value: string }) => a.idtype === "doi")?.value ?? "";
 
     return {
       pubmed_id: id,
-      title: title.trim(),
+      title: title.replace(/<[^>]+>/g, "").trim(),
       authors,
       journal,
       year,
-      abstract: abstract.trim(),
+      abstract,
       doi,
       url: `https://pubmed.ncbi.nlm.nih.gov/${id}/`,
     };
