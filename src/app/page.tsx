@@ -425,7 +425,7 @@ export default function Home() {
           )}
 
           {activeTab === "experiment" && (
-            <ExperimentScheduler key={experimentTabKey} authToken={session?.access_token} />
+            <ExperimentScheduler key={experimentTabKey} authToken={session?.access_token} userId={user?.id} />
           )}
 
           {activeTab === "calendar" && (
