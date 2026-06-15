@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer, Share2 } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale/ja";
 
@@ -52,16 +52,28 @@ const EXPERIMENT_TEMPLATE = `## 実験記録
 ### 次のステップ
 `;
 
+interface SharedNote {
+  id: string;
+  note_title: string;
+  note_content: string;
+  created_at: string;
+  sender: { username: string };
+}
+
 interface NotesPanelProps {
   initialNoteId?: string | null;
   userId?: string;
   authToken?: string;
 }
 
-export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps) {
+export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPanelProps) {
+  const [tab, setTab] = useState<"my" | "shared">("my");
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sharedNotes, setSharedNotes] = useState<SharedNote[]>([]);
+  const [selectedShared, setSelectedShared] = useState<SharedNote | null>(null);
+  const [sharedLoading, setSharedLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refUrl, setRefUrl] = useState("");
@@ -87,6 +99,22 @@ export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps
       if (target) setSelectedNote(target);
     }
   };
+
+  const fetchSharedNotes = async () => {
+    setSharedLoading(true);
+    const res = await fetch("/api/messages", { headers: headers() });
+    const data = await res.json();
+    const received = (Array.isArray(data) ? data : []).filter(
+      (m: { receiver_id: string; note_title?: string }) => m.receiver_id === userId && m.note_title
+    );
+    setSharedNotes(received);
+    setSharedLoading(false);
+  };
+
+  useEffect(() => {
+    if (tab === "shared") fetchSharedNotes();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
 
   const handleNew = async (type: "free" | "experiment") => {
     const res = await fetch("/api/notes", {
@@ -234,7 +262,22 @@ export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps
       <div className="w-64 flex-shrink-0 bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col">
         <div className="p-4 border-b">
           <h2 className="font-semibold text-gray-900 mb-3">研究ノート</h2>
-          <div className="flex gap-2">
+          {/* タブ */}
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 mb-3">
+            <button
+              onClick={() => setTab("my")}
+              className={`flex-1 flex items-center justify-center gap-1 rounded-md py-1 text-xs font-medium transition-colors ${tab === "my" ? "bg-white text-blue-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              <FileText className="w-3 h-3" />マイノート
+            </button>
+            <button
+              onClick={() => setTab("shared")}
+              className={`flex-1 flex items-center justify-center gap-1 rounded-md py-1 text-xs font-medium transition-colors ${tab === "shared" ? "bg-white text-purple-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              <Share2 className="w-3 h-3" />共有ノート
+            </button>
+          </div>
+          {tab === "my" && <div className="flex gap-2">
             <button
               onClick={() => handleNew("free")}
               className="flex-1 flex items-center justify-center gap-1 bg-blue-600 text-white rounded-lg py-1.5 text-xs font-medium hover:bg-blue-700 transition-colors"
@@ -251,34 +294,61 @@ export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps
               <FlaskConical className="w-3.5 h-3.5" />
               実験
             </button>
-          </div>
+          </div>}
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {notes.length === 0 ? (
+          {tab === "my" ? (
+            notes.length === 0 ? (
+              <div className="text-center py-8 text-gray-400 text-sm px-4">
+                <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                ノートがありません
+              </div>
+            ) : (
+              notes.map((note) => (
+                <button
+                  key={note.id}
+                  onClick={() => setSelectedNote(note)}
+                  className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors ${
+                    selectedNote?.id === note.id ? "bg-blue-50 border-l-2 border-l-blue-600" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {note.note_type === "experiment" ? (
+                      <FlaskConical className="w-3 h-3 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <BookOpen className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                    )}
+                    <p className="font-medium text-sm text-gray-900 truncate">{note.title}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 ml-4">
+                    {note.updated_at ? format(new Date(note.updated_at), "M月d日 HH:mm", { locale: ja }) : ""}
+                  </p>
+                </button>
+              ))
+            )
+          ) : sharedLoading ? (
+            <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
+          ) : sharedNotes.length === 0 ? (
             <div className="text-center py-8 text-gray-400 text-sm px-4">
-              <FileText className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              ノートがありません
+              <Share2 className="w-8 h-8 mx-auto mb-2 opacity-30" />
+              共有されたノートはありません
             </div>
           ) : (
-            notes.map((note) => (
+            sharedNotes.map((msg) => (
               <button
-                key={note.id}
-                onClick={() => setSelectedNote(note)}
+                key={msg.id}
+                onClick={() => setSelectedShared(msg)}
                 className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors ${
-                  selectedNote?.id === note.id ? "bg-blue-50 border-l-2 border-l-blue-600" : ""
+                  selectedShared?.id === msg.id ? "bg-purple-50 border-l-2 border-l-purple-500" : ""
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  {note.note_type === "experiment" ? (
-                    <FlaskConical className="w-3 h-3 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <BookOpen className="w-3 h-3 text-blue-500 flex-shrink-0" />
-                  )}
-                  <p className="font-medium text-sm text-gray-900 truncate">{note.title}</p>
+                  <Share2 className="w-3 h-3 text-purple-500 flex-shrink-0" />
+                  <p className="font-medium text-sm text-gray-900 truncate">{msg.note_title}</p>
                 </div>
                 <p className="text-xs text-gray-400 mt-0.5 ml-4">
-                  {note.updated_at ? format(new Date(note.updated_at), "M月d日 HH:mm", { locale: ja }) : ""}
+                  @{msg.sender?.username} · {format(new Date(msg.created_at), "M月d日 HH:mm", { locale: ja })}
                 </p>
               </button>
             ))
@@ -288,7 +358,29 @@ export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps
 
       {/* ノート編集エリア */}
       <div className="flex-1 bg-white rounded-2xl border shadow-sm overflow-hidden flex flex-col">
-        {selectedNote ? (
+        {tab === "shared" && selectedShared ? (
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b flex items-center gap-3">
+              <Share2 className="w-4 h-4 text-purple-500" />
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">{selectedShared.note_title}</h3>
+                <p className="text-xs text-gray-400">@{selectedShared.sender?.username} より · {format(new Date(selectedShared.created_at), "M月d日 HH:mm", { locale: ja })}</p>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <pre className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-sans">
+                {selectedShared.note_content?.replace(/<[^>]+>/g, "") ?? ""}
+              </pre>
+            </div>
+          </div>
+        ) : tab === "shared" ? (
+          <div className="flex-1 flex items-center justify-center text-gray-400">
+            <div className="text-center">
+              <Share2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">左のリストから共有ノートを選んでください</p>
+            </div>
+          </div>
+        ) : selectedNote ? (
           <>
             <div className="p-4 border-b flex items-center gap-3">
               <input
@@ -401,3 +493,4 @@ export default function NotesPanel({ initialNoteId, authToken }: NotesPanelProps
     </div>
   );
 }
+
