@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CalendarDays, Plus, Trash2, FlaskConical, Clock, CheckCircle, Inbox, UserCheck } from "lucide-react";
 
+
 interface CalendarEventIds {
   p: string;
   h: string;
@@ -81,9 +82,9 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
   const [experimentEndDateTime, setExperimentEndDateTime] = useState("");
   const [hoursBeforeH, setHoursBeforeH] = useState(16);
   const [adding, setAdding] = useState(false);
-  const [addingToMine, setAddingToMine] = useState<string | null>(null);
   const [addingToCalendar, setAddingToCalendar] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [receivedCalendarIds, setReceivedCalendarIds] = useState<Record<string, CalendarEventIds>>({});
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -160,27 +161,6 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
     showToast("実験スケジュールを追加しました");
   };
 
-  const handleAddToMySchedules = async (received: ReceivedSchedule) => {
-    const s = received.share_data;
-    setAddingToMine(received.id);
-    const res = await fetch("/api/experiment-schedules", {
-      method: "POST",
-      headers: authHeaders(),
-      body: JSON.stringify({
-        name: s.name,
-        experiment_datetime: s.experiment_datetime,
-        experiment_end_datetime: s.experiment_end_datetime,
-        hours_before_h: s.hours_before_h,
-        calendar_added: false,
-      }),
-    });
-    const data = await res.json();
-    setAddingToMine(null);
-    if (data.error) { showToast(data.error); return; }
-    setSchedules(prev => [data, ...prev]);
-    showToast("マイスケジュールに追加しました");
-  };
-
   const handleAddReceivedToCalendar = async (received: ReceivedSchedule) => {
     const s = received.share_data;
     setAddingToCalendar(received.id);
@@ -190,11 +170,12 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
       const expEndDate = new Date(s.experiment_end_datetime);
 
       const events = [
-        { title: `【P注射】${s.name}`, dateTime: pDate.toISOString(), endDateTime: pDate.toISOString(), description: `実験「${s.name}」のP注射` },
-        { title: `【H注射】${s.name}`, dateTime: hDate.toISOString(), endDateTime: hDate.toISOString(), description: `実験「${s.name}」のH注射` },
-        { title: `【実験】${s.name}`, dateTime: expDate.toISOString(), endDateTime: expEndDate.toISOString(), description: `実験「${s.name}」` },
+        { key: "p" as const, title: `【P注射】${s.name}`, dateTime: pDate.toISOString(), endDateTime: pDate.toISOString(), description: `実験「${s.name}」のP注射` },
+        { key: "h" as const, title: `【H注射】${s.name}`, dateTime: hDate.toISOString(), endDateTime: hDate.toISOString(), description: `実験「${s.name}」のH注射` },
+        { key: "exp" as const, title: `【実験】${s.name}`, dateTime: expDate.toISOString(), endDateTime: expEndDate.toISOString(), description: `実験「${s.name}」` },
       ];
 
+      const eventIds: Partial<CalendarEventIds> = {};
       let allOk = true;
       for (const ev of events) {
         const res = await fetch("/api/calendar/sync", {
@@ -202,11 +183,37 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
           body: JSON.stringify({ title: ev.title, description: ev.description, dueDate: ev.dateTime, endDate: ev.endDateTime, isDateTime: true }),
         });
         if (res.status === 401) { window.location.href = `/api/calendar/connect?token=${authToken}`; return; }
-        if (!res.ok) allOk = false;
+        if (res.ok) { const d = await res.json(); eventIds[ev.key] = d.eventId; }
+        else allOk = false;
       }
-      showToast(allOk ? "Googleカレンダーに3件追加しました" : "一部の追加に失敗しました");
+      if (allOk && eventIds.p && eventIds.h && eventIds.exp) {
+        setReceivedCalendarIds(prev => ({ ...prev, [received.id]: eventIds as CalendarEventIds }));
+        showToast("Googleカレンダーに3件追加しました");
+      } else {
+        showToast("一部の追加に失敗しました");
+      }
     } finally {
       setAddingToCalendar(null);
+    }
+  };
+
+  const handleDeleteReceived = async (received: ReceivedSchedule) => {
+    if (!confirm("この共有スケジュールを削除しますか？")) return;
+    setDeleting(received.id);
+    try {
+      const calIds = receivedCalendarIds[received.id];
+      if (calIds) {
+        await Promise.all([calIds.p, calIds.h, calIds.exp].map(eventId =>
+          fetch("/api/calendar/sync", { method: "DELETE", headers: authHeaders(), body: JSON.stringify({ eventId }) })
+        ));
+        showToast("スケジュールとGoogleカレンダーの予定を削除しました");
+      } else {
+        showToast("共有スケジュールを削除しました");
+      }
+      await fetch(`/api/messages/${received.id}`, { method: "DELETE", headers: authHeaders() });
+      setReceivedSchedules(prev => prev.filter(r => r.id !== received.id));
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -478,19 +485,26 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
+                        {receivedCalendarIds[received.id] ? (
+                          <span className="flex items-center gap-1.5 text-sm text-green-600">
+                            <CheckCircle className="w-4 h-4" />カレンダー登録済
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleAddReceivedToCalendar(received)}
+                            disabled={addingToCalendar === received.id}
+                            className="flex items-center gap-1.5 text-sm text-blue-600 border border-blue-200 bg-white rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
+                          >
+                            <CalendarDays className="w-4 h-4" />{addingToCalendar === received.id ? "追加中..." : "カレンダーに追加"}
+                          </button>
+                        )}
                         <button
-                          onClick={() => handleAddToMySchedules(received)}
-                          disabled={addingToMine === received.id}
-                          className="flex items-center gap-1.5 text-sm text-teal-600 border border-teal-200 bg-white rounded-lg px-3 py-1.5 hover:bg-teal-50 transition-colors disabled:opacity-50"
+                          onClick={() => handleDeleteReceived(received)}
+                          disabled={deleting === received.id}
+                          className="text-gray-400 hover:text-red-500 transition-colors p-1 disabled:opacity-50"
+                          title="共有スケジュールを削除"
                         >
-                          <Plus className="w-4 h-4" />マイスケジュールに追加
-                        </button>
-                        <button
-                          onClick={() => handleAddReceivedToCalendar(received)}
-                          disabled={addingToCalendar === received.id}
-                          className="flex items-center gap-1.5 text-sm text-blue-600 border border-blue-200 bg-white rounded-lg px-3 py-1.5 hover:bg-blue-50 transition-colors disabled:opacity-50"
-                        >
-                          <CalendarDays className="w-4 h-4" />カレンダーに追加
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
