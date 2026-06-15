@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, BookOpen, Plus, Trash2, Loader2, ExternalLink, Tag, FolderOpen, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Search, BookOpen, Plus, Trash2, Loader2, ExternalLink, Tag, FolderOpen, ChevronDown, ChevronUp, X, FolderPlus, Pencil, Check } from "lucide-react";
 import clsx from "clsx";
 
 interface Paper {
@@ -44,8 +44,12 @@ export default function PapersPanel({ authToken }: Props) {
   const [activeTab, setActiveTab] = useState<"search" | "library">("search");
   const [expandedAbstract, setExpandedAbstract] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [collections, setCollections] = useState<string[]>(["未分類"]);
+  const [collections, setCollections] = useState<string[]>([]);
   const [filterCollection, setFilterCollection] = useState("all");
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [addingCollection, setAddingCollection] = useState(false);
+  const [renamingCollection, setRenamingCollection] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
 
   const headers = (): HeadersInit => ({
     "Content-Type": "application/json",
@@ -64,7 +68,7 @@ export default function PapersPanel({ authToken }: Props) {
     const data = await res.json();
     if (Array.isArray(data)) {
       setLibrary(data);
-      const cols = Array.from(new Set(["未分類", ...data.map((p: Paper) => p.collection)]));
+      const cols = Array.from(new Set(data.map((p: Paper) => p.collection).filter(Boolean)));
       setCollections(cols);
     }
   };
@@ -131,7 +135,7 @@ export default function PapersPanel({ authToken }: Props) {
     const updated = await res.json();
     setLibrary((prev) => prev.map((p) => (p.id === id ? updated : p)));
     if (selectedPaper?.id === id) setSelectedPaper(updated);
-    const cols = Array.from(new Set(["未分類", ...library.map((p) => p.collection), updated.collection]));
+    const cols = Array.from(new Set([...library.map((p) => p.collection), updated.collection].filter(Boolean)));
     setCollections(cols);
   };
 
@@ -140,6 +144,43 @@ export default function PapersPanel({ authToken }: Props) {
     await fetch(`/api/papers/${id}`, { method: "DELETE", headers: headers() });
     setLibrary((prev) => prev.filter((p) => p.id !== id));
     if (selectedPaper?.id === id) setSelectedPaper(null);
+  };
+
+  const handleAddCollection = () => {
+    const name = newCollectionName.trim();
+    if (!name || collections.includes(name)) return;
+    setCollections(prev => [...prev, name]);
+    setNewCollectionName("");
+    setAddingCollection(false);
+  };
+
+  const handleRenameCollection = async (oldName: string) => {
+    const newName = renameValue.trim();
+    if (!newName || newName === oldName) { setRenamingCollection(null); return; }
+    // ライブラリ内の論文を一括更新
+    const targets = library.filter(p => p.collection === oldName);
+    await Promise.all(targets.map(p => fetch(`/api/papers/${p.id}`, {
+      method: "PATCH", headers: headers(), body: JSON.stringify({ collection: newName }),
+    })));
+    setLibrary(prev => prev.map(p => p.collection === oldName ? { ...p, collection: newName } : p));
+    setCollections(prev => prev.map(c => c === oldName ? newName : c));
+    if (filterCollection === oldName) setFilterCollection(newName);
+    setRenamingCollection(null);
+  };
+
+  const handleDeleteCollection = async (name: string) => {
+    if (!confirm(`「${name}」を削除しますか？このコレクションの論文は未分類になります。`)) return;
+    const targets = library.filter(p => p.collection === name);
+    await Promise.all(targets.map(p => fetch(`/api/papers/${p.id}`, {
+      method: "PATCH", headers: headers(), body: JSON.stringify({ collection: "未分類" }),
+    })));
+    setLibrary(prev => prev.map(p => p.collection === name ? { ...p, collection: "未分類" } : p));
+    setCollections(prev => {
+      const next = prev.filter(c => c !== name);
+      if (targets.length > 0 && !next.includes("未分類")) return [...next, "未分類"];
+      return next;
+    });
+    if (filterCollection === name) setFilterCollection("all");
   };
 
   const isInLibrary = (pubmedId: string) => library.some((p) => p.pubmed_id === pubmedId);
@@ -279,17 +320,76 @@ export default function PapersPanel({ authToken }: Props) {
           </div>
         ) : (
           <div className="flex-1 bg-white border rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="p-3 border-b">
-              <select
-                value={filterCollection}
-                onChange={(e) => setFilterCollection(e.target.value)}
-                className="w-full border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            {/* コレクション一覧 */}
+            <div className="p-3 border-b space-y-1">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-500">コレクション</span>
+                <button
+                  onClick={() => setAddingCollection(true)}
+                  className="text-blue-600 hover:text-blue-700 transition-colors"
+                  title="コレクションを追加"
+                >
+                  <FolderPlus className="w-4 h-4" />
+                </button>
+              </div>
+              <button
+                onClick={() => setFilterCollection("all")}
+                className={clsx("w-full text-left flex items-center justify-between px-2 py-1.5 rounded-lg text-sm transition-colors",
+                  filterCollection === "all" ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-600 hover:bg-gray-50"
+                )}
               >
-                <option value="all">すべてのコレクション ({library.length})</option>
-                {collections.map((c) => (
-                  <option key={c} value={c}>{c} ({library.filter(p => p.collection === c).length})</option>
-                ))}
-              </select>
+                <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" />すべて</span>
+                <span className="text-xs text-gray-400">{library.length}</span>
+              </button>
+              {collections.map((c) => (
+                <div key={c} className={clsx("flex items-center gap-1 px-2 py-1.5 rounded-lg transition-colors group",
+                  filterCollection === c ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50"
+                )}>
+                  {renamingCollection === c ? (
+                    <form className="flex-1 flex gap-1" onSubmit={(e) => { e.preventDefault(); handleRenameCollection(c); }}>
+                      <input
+                        autoFocus
+                        value={renameValue}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        className="flex-1 border rounded px-1.5 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      />
+                      <button type="submit" className="text-green-600"><Check className="w-3.5 h-3.5" /></button>
+                      <button type="button" onClick={() => setRenamingCollection(null)} className="text-gray-400"><X className="w-3.5 h-3.5" /></button>
+                    </form>
+                  ) : (
+                    <>
+                      <button
+                        className="flex-1 flex items-center justify-between text-sm text-left"
+                        onClick={() => setFilterCollection(c)}
+                      >
+                        <span className="flex items-center gap-1.5"><FolderOpen className="w-3.5 h-3.5" />{c}</span>
+                        <span className="text-xs text-gray-400">{library.filter(p => p.collection === c).length}</span>
+                      </button>
+                      <button
+                        onClick={() => { setRenamingCollection(c); setRenameValue(c); }}
+                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-blue-500 transition-opacity"
+                      ><Pencil className="w-3 h-3" /></button>
+                      <button
+                        onClick={() => handleDeleteCollection(c)}
+                        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                      ><X className="w-3 h-3" /></button>
+                    </>
+                  )}
+                </div>
+              ))}
+              {addingCollection && (
+                <form className="flex gap-1 mt-1" onSubmit={(e) => { e.preventDefault(); handleAddCollection(); }}>
+                  <input
+                    autoFocus
+                    value={newCollectionName}
+                    onChange={(e) => setNewCollectionName(e.target.value)}
+                    placeholder="コレクション名"
+                    className="flex-1 border rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  />
+                  <button type="submit" className="text-green-600"><Check className="w-4 h-4" /></button>
+                  <button type="button" onClick={() => setAddingCollection(false)} className="text-gray-400"><X className="w-4 h-4" /></button>
+                </form>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto">
               {filteredLibrary.length === 0 ? (
@@ -313,7 +413,7 @@ export default function PapersPanel({ authToken }: Props) {
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{paper.year} · {paper.journal}</p>
-                    {paper.collection !== "未分類" && (
+                    {paper.collection && paper.collection !== "未分類" && (
                       <span className="text-xs text-blue-600 flex items-center gap-0.5 mt-0.5">
                         <FolderOpen className="w-3 h-3" />{paper.collection}
                       </span>
