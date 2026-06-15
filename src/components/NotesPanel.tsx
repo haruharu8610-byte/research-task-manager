@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer, Share2 } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer, Share2, Trash } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale/ja";
 
@@ -123,6 +123,13 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
     if (tab === "shared") fetchSharedNotes();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const deleteSharedNote = async (id: string) => {
+    if (!confirm("この共有ノートを削除しますか？")) return;
+    await fetch(`/api/messages/${id}`, { method: "DELETE", headers: headers() });
+    setSharedNotes(prev => prev.filter(n => n.id !== id));
+    if (selectedShared?.id === id) setSelectedShared(null);
+  };
 
   const handleNew = async (type: "free" | "experiment") => {
     const res = await fetch("/api/notes", {
@@ -344,21 +351,25 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
             </div>
           ) : (
             sharedNotes.map((msg) => (
-              <button
+              <div
                 key={msg.id}
-                onClick={() => setSelectedShared(msg)}
-                className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors ${
+                className={`w-full text-left px-4 py-3 border-b hover:bg-gray-50 transition-colors flex items-start gap-1 ${
                   selectedShared?.id === msg.id ? "bg-purple-50 border-l-2 border-l-purple-500" : ""
                 }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <Share2 className="w-3 h-3 text-purple-500 flex-shrink-0" />
-                  <p className="font-medium text-sm text-gray-900 truncate">{msg.note_title}</p>
-                </div>
-                <p className="text-xs text-gray-400 mt-0.5 ml-4">
-                  @{msg.sender?.username} · {format(new Date(msg.created_at), "M月d日 HH:mm", { locale: ja })}
-                </p>
-              </button>
+                <button className="flex-1 text-left min-w-0" onClick={() => setSelectedShared(msg)}>
+                  <div className="flex items-center gap-1.5">
+                    <Share2 className="w-3 h-3 text-purple-500 flex-shrink-0" />
+                    <p className="font-medium text-sm text-gray-900 truncate">{msg.note_title}</p>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5 ml-4">
+                    @{msg.sender?.username} · {format(new Date(msg.created_at), "M月d日 HH:mm", { locale: ja })}
+                  </p>
+                </button>
+                <button onClick={() => deleteSharedNote(msg.id)} className="text-gray-300 hover:text-red-500 transition-colors mt-1 flex-shrink-0">
+                  <Trash className="w-3.5 h-3.5" />
+                </button>
+              </div>
             ))
           )}
         </div>
