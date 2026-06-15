@@ -21,6 +21,17 @@ interface Props {
 }
 
 export default function AISuggestPanel({ existingTasks, onAddTask }: Props) {
+  const hasApiKey = typeof window !== "undefined" && !!localStorage.getItem("anthropic_api_key");
+  if (!hasApiKey) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
+        <Sparkles className="w-14 h-14 text-gray-300" />
+        <p className="text-lg font-semibold text-gray-700">AI提案を利用できません</p>
+        <p className="text-sm text-gray-500 max-w-sm">APIキーが設定されていません。右上の「🔑 APIキー」ボタンからAnthropicのAPIキーを登録してください。</p>
+      </div>
+    );
+  }
+
   const [theme, setTheme] = useState("");
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
