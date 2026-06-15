@@ -52,10 +52,18 @@ const EXPERIMENT_TEMPLATE = `## 実験記録
 ### 次のステップ
 `;
 
+interface SharedRef {
+  url: string;
+  title: string;
+  authors?: string;
+  year?: string;
+}
+
 interface SharedNote {
   id: string;
   note_title: string;
   note_content: string;
+  refs?: SharedRef[];
   created_at: string;
   sender: { username: string };
 }
@@ -369,6 +377,14 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
               <button
                 onClick={() => {
                   const content = selectedShared.note_content?.replace(/<[^>]+>/g, "") ?? "";
+                  const refs = (selectedShared.refs ?? []).map((r, i) =>
+                    `<div style="margin-bottom:6px;font-size:12px;">
+                      <span style="color:#555;">[${i + 1}]</span>
+                      <strong>${r.title}</strong>
+                      ${r.authors ? `<span style="color:#666;"> — ${r.authors}${r.year ? ` (${r.year})` : ""}</span>` : ""}
+                      <br/><a href="${r.url}" style="color:#2563eb;">${r.url}</a>
+                    </div>`
+                  ).join("");
                   const html = `<!DOCTYPE html><html><head>
                     <meta charset="utf-8"/>
                     <title>${selectedShared.note_title}</title>
@@ -377,12 +393,15 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
                       h1 { font-size: 22px; border-bottom: 2px solid #7c3aed; padding-bottom: 8px; }
                       .meta { color: #888; font-size: 12px; margin-bottom: 20px; }
                       pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.8; }
+                      .refs { border-top: 1px solid #e5e7eb; margin-top: 24px; padding-top: 12px; }
+                      .refs h2 { font-size: 15px; color: #374151; margin-bottom: 10px; }
                       @media print { body { margin: 20px; } }
                     </style>
                   </head><body>
                     <h1>${selectedShared.note_title}</h1>
                     <div class="meta">共有元: @${selectedShared.sender?.username} · ${format(new Date(selectedShared.created_at), "M月d日 HH:mm", { locale: ja })}</div>
                     <pre>${content}</pre>
+                    ${refs ? `<div class="refs"><h2>参考文献</h2>${refs}</div>` : ""}
                   </body></html>`;
                   const win = window.open("", "_blank");
                   if (!win) return;
@@ -401,6 +420,23 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
               <pre className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-sans">
                 {selectedShared.note_content?.replace(/<[^>]+>/g, "") ?? ""}
               </pre>
+              {(selectedShared.refs ?? []).length > 0 && (
+                <div className="border-t mt-4 pt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">参考文献</span>
+                  </div>
+                  <div className="space-y-1">
+                    {(selectedShared.refs ?? []).map((ref, idx) => (
+                      <div key={idx} className="bg-gray-50 rounded-lg px-3 py-2">
+                        <p className="text-xs font-medium text-gray-800">{ref.title}</p>
+                        {ref.authors && <p className="text-xs text-gray-500">{ref.authors}{ref.year ? ` (${ref.year})` : ""}</p>}
+                        <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline truncate block">{ref.url}</a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ) : tab === "shared" ? (

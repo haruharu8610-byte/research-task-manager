@@ -27,7 +27,7 @@ type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard" | "papers" | "ex
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [notesList, setNotesList] = useState<{ id: string; title: string; content: string }[]>([]);
+  const [notesList, setNotesList] = useState<{ id: string; title: string; content: string; refs?: { url: string; title: string; authors?: string; year?: string }[] }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [noteTask, setNoteTask] = useState<Task | null>(null);
@@ -87,7 +87,7 @@ export default function Home() {
 
     fetch("/api/notes", { headers: authHeaders() })
       .then(r => r.json())
-      .then(d => setNotesList(Array.isArray(d) ? d.map((n: { id: string; title: string; content: string }) => ({ id: n.id, title: n.title, content: n.content })) : []));
+      .then(d => setNotesList(Array.isArray(d) ? d.map((n: { id: string; title: string; content: string; refs?: { url: string; title: string; authors?: string; year?: string }[] }) => ({ id: n.id, title: n.title, content: n.content, refs: n.refs ?? [] })) : []));
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("calendar") === "connected") {

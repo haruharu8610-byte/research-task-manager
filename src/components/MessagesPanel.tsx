@@ -8,6 +8,13 @@ const HISTORY_KEY = "message_recipient_history";
 
 interface Profile { id: string; username: string; }
 interface Reaction { id: string; user_id: string; emoji: string; }
+interface Ref {
+  url: string;
+  title: string;
+  authors?: string;
+  year?: string;
+}
+
 interface Message {
   id: string;
   sender_id: string;
@@ -15,6 +22,7 @@ interface Message {
   note_id?: string;
   note_title?: string;
   note_content?: string;
+  refs?: Ref[];
   created_at: string;
   sender: { username: string };
   receiver: { username: string };
@@ -24,7 +32,7 @@ interface Message {
 interface Props {
   userId: string;
   authToken?: string;
-  notes?: { id: string; title: string; content: string }[];
+  notes?: { id: string; title: string; content: string; refs?: Ref[] }[];
 }
 
 export default function MessagesPanel({ userId, authToken, notes = [] }: Props) {
@@ -137,6 +145,7 @@ export default function MessagesPanel({ userId, authToken, notes = [] }: Props) 
         note_id: note?.id ?? null,
         note_title: note?.title ?? null,
         note_content: note?.content ?? null,
+        refs: note?.refs ?? [],
       }),
     });
     const data = await res.json();
