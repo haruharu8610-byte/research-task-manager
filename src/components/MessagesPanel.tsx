@@ -157,6 +157,24 @@ export default function MessagesPanel({ userId, authToken, notes = [] }: Props) 
     if (res.ok) fetchMessages();
   };
 
+  const saveNoteFromMessage = async (msg: Message) => {
+    if (!msg.note_title) return;
+    const res = await fetch("/api/notes", {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ title: msg.note_title, content: msg.note_content ?? "" }),
+    });
+    const data = await res.json();
+    if (data.error) { showToast(data.error); return; }
+    showToast("ノートを保存しました");
+  };
+
+  // 30秒ごとにメッセージを自動更新
+  useEffect(() => {
+    const interval = setInterval(() => { fetchMessages(); }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchMessages]);
+
   const toggleNoteExpand = (id: string) => {
     setExpandedNotes(prev => {
       const next = new Set(prev);
@@ -356,6 +374,14 @@ export default function MessagesPanel({ userId, authToken, notes = [] }: Props) 
                           </div>
                         )}
                         {!msg.note_title && <p className="text-sm">ノートを共有しました</p>}
+                        {!isMine && msg.note_title && (
+                          <button
+                            onClick={() => saveNoteFromMessage(msg)}
+                            className="mt-2 text-xs bg-white/20 hover:bg-white/30 rounded px-2 py-1 transition-colors"
+                          >
+                            📥 自分のノートに保存
+                          </button>
+                        )}
                       </div>
 
                       {/* リアクション表示 */}
