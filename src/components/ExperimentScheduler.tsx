@@ -141,9 +141,14 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
     setReceivedLoading(true);
     const res = await fetch("/api/messages", { headers: authHeaders() });
     const data = await res.json();
+    const now = new Date();
     const received = (Array.isArray(data) ? data : []).filter(
-      (m: { id: string; receiver_id: string; share_type: string; share_data: unknown }) =>
-        m.receiver_id === userId && m.share_type === "schedule" && m.share_data && !dismissedIds.has(m.id)
+      (m: { id: string; receiver_id: string; share_type: string; share_data: { experiment_datetime?: string } }) =>
+        m.receiver_id === userId &&
+        m.share_type === "schedule" &&
+        m.share_data &&
+        !dismissedIds.has(m.id) &&
+        new Date(m.share_data.experiment_datetime ?? 0) > now
     );
     setReceivedSchedules(received);
     setReceivedLoading(false);
