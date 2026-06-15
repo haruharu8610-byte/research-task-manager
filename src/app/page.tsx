@@ -94,7 +94,11 @@ export default function Home() {
       .then(r => r.json())
       .then(d => {
         if (Array.isArray(d) && user) {
-          setUnreadMessageCount(d.filter((m: { receiver_id: string }) => m.receiver_id === user.id).length);
+          const lastRead = localStorage.getItem(`messages_last_read_${user.id}`);
+          const lastReadTime = lastRead ? new Date(lastRead) : new Date(0);
+          setUnreadMessageCount(d.filter((m: { receiver_id: string; created_at: string }) =>
+            m.receiver_id === user.id && new Date(m.created_at) > lastReadTime
+          ).length);
         }
       });
 
@@ -357,7 +361,10 @@ export default function Home() {
               onClick={() => {
                 setActiveTab(tab.id);
                 if (tab.id === "experiment") setExperimentTabKey(k => k + 1);
-                if (tab.id === "messages") setUnreadMessageCount(0);
+                if (tab.id === "messages") {
+                  setUnreadMessageCount(0);
+                  if (user) localStorage.setItem(`messages_last_read_${user.id}`, new Date().toISOString());
+                }
               }}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === tab.id ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
