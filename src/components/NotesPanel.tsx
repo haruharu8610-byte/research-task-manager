@@ -366,6 +366,36 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
                 <h3 className="text-lg font-semibold text-gray-900">{selectedShared.note_title}</h3>
                 <p className="text-xs text-gray-400">@{selectedShared.sender?.username} より · {format(new Date(selectedShared.created_at), "M月d日 HH:mm", { locale: ja })}</p>
               </div>
+              <button
+                onClick={() => {
+                  const content = selectedShared.note_content?.replace(/<[^>]+>/g, "") ?? "";
+                  const html = `<!DOCTYPE html><html><head>
+                    <meta charset="utf-8"/>
+                    <title>${selectedShared.note_title}</title>
+                    <style>
+                      body { font-family: sans-serif; max-width: 800px; margin: 40px auto; color: #1a1a1a; }
+                      h1 { font-size: 22px; border-bottom: 2px solid #7c3aed; padding-bottom: 8px; }
+                      .meta { color: #888; font-size: 12px; margin-bottom: 20px; }
+                      pre { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.8; }
+                      @media print { body { margin: 20px; } }
+                    </style>
+                  </head><body>
+                    <h1>${selectedShared.note_title}</h1>
+                    <div class="meta">共有元: @${selectedShared.sender?.username} · ${format(new Date(selectedShared.created_at), "M月d日 HH:mm", { locale: ja })}</div>
+                    <pre>${content}</pre>
+                  </body></html>`;
+                  const win = window.open("", "_blank");
+                  if (!win) return;
+                  win.document.write(html);
+                  win.document.close();
+                  win.focus();
+                  setTimeout(() => { win.print(); }, 500);
+                }}
+                className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                title="PDFとして保存・印刷"
+              >
+                <Printer className="w-4 h-4" />
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto px-5 py-4">
               <pre className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-sans">
