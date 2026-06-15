@@ -413,11 +413,18 @@ export default function PapersPanel({ authToken }: Props) {
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{paper.year} · {paper.journal}</p>
-                    {paper.collection && paper.collection !== "未分類" && (
-                      <span className="text-xs text-blue-600 flex items-center gap-0.5 mt-0.5">
-                        <FolderOpen className="w-3 h-3" />{paper.collection}
-                      </span>
-                    )}
+                    <div className="mt-1.5" onClick={(e) => e.stopPropagation()}>
+                      <select
+                        value={paper.collection || "未分類"}
+                        onChange={(e) => handleUpdate(paper.id!, { collection: e.target.value })}
+                        className="w-full border rounded-md px-1.5 py-0.5 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white"
+                      >
+                        <option value="未分類">📂 未分類</option>
+                        {collections.filter(c => c !== "未分類").map((c) => (
+                          <option key={c} value={c}>📁 {c}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 ))
               )}
