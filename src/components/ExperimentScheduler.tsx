@@ -85,7 +85,37 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
   const [addingToCalendar, setAddingToCalendar] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [receivedCalendarIds, setReceivedCalendarIds] = useState<Record<string, CalendarEventIds>>({});
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
+
+  const calStorageKey = userId ? `received_schedule_cal_${userId}` : null;
+  const dismissStorageKey = userId ? `received_schedule_dismissed_${userId}` : null;
+
+  // localStorageからカレンダーIDと非表示リストを復元
+  useEffect(() => {
+    if (calStorageKey) {
+      try {
+        const stored = localStorage.getItem(calStorageKey);
+        if (stored) setReceivedCalendarIds(JSON.parse(stored));
+      } catch {}
+    }
+    if (dismissStorageKey) {
+      try {
+        const stored = localStorage.getItem(dismissStorageKey);
+        if (stored) setDismissedIds(new Set(JSON.parse(stored)));
+      } catch {}
+    }
+  }, [calStorageKey, dismissStorageKey]);
+
+  const saveCalendarIds = (ids: Record<string, CalendarEventIds>) => {
+    setReceivedCalendarIds(ids);
+    if (calStorageKey) localStorage.setItem(calStorageKey, JSON.stringify(ids));
+  };
+
+  const saveDismissed = (ids: Set<string>) => {
+    setDismissedIds(ids);
+    if (dismissStorageKey) localStorage.setItem(dismissStorageKey, JSON.stringify(Array.from(ids)));
+  };
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -112,8 +142,8 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
     const res = await fetch("/api/messages", { headers: authHeaders() });
     const data = await res.json();
     const received = (Array.isArray(data) ? data : []).filter(
-      (m: { receiver_id: string; share_type: string; share_data: unknown }) =>
-        m.receiver_id === userId && m.share_type === "schedule" && m.share_data
+      (m: { id: string; receiver_id: string; share_type: string; share_data: unknown }) =>
+        m.receiver_id === userId && m.share_type === "schedule" && m.share_data && !dismissedIds.has(m.id)
     );
     setReceivedSchedules(received);
     setReceivedLoading(false);
@@ -187,7 +217,7 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
         else allOk = false;
       }
       if (allOk && eventIds.p && eventIds.h && eventIds.exp) {
-        setReceivedCalendarIds(prev => ({ ...prev, [received.id]: eventIds as CalendarEventIds }));
+        saveCalendarIds({ ...receivedCalendarIds, [received.id]: eventIds as CalendarEventIds });
         showToast("Googleカレンダーに3件追加しました");
       } else {
         showToast("一部の追加に失敗しました");
@@ -198,7 +228,7 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
   };
 
   const handleDeleteReceived = async (received: ReceivedSchedule) => {
-    if (!confirm("この共有スケジュールを削除しますか？")) return;
+    if (!confirm("この共有スケジュールを削除しますか？\n（メッセージは残ります）")) return;
     setDeleting(received.id);
     try {
       const calIds = receivedCalendarIds[received.id];
@@ -206,11 +236,18 @@ export default function ExperimentScheduler({ authToken, userId }: Props) {
         await Promise.all([calIds.p, calIds.h, calIds.exp].map(eventId =>
           fetch("/api/calendar/sync", { method: "DELETE", headers: authHeaders(), body: JSON.stringify({ eventId }) })
         ));
+        // カレンダーIDもlocalStorageから削除
+        const newCalIds = { ...receivedCalendarIds };
+        delete newCalIds[received.id];
+        saveCalendarIds(newCalIds);
         showToast("スケジュールとGoogleカレンダーの予定を削除しました");
       } else {
         showToast("共有スケジュールを削除しました");
       }
-      await fetch(`/api/messages/${received.id}`, { method: "DELETE", headers: authHeaders() });
+      // メッセージは削除せず、非表示リストに追加
+      const newDismissed = new Set(dismissedIds);
+      newDismissed.add(received.id);
+      saveDismissed(newDismissed);
       setReceivedSchedules(prev => prev.filter(r => r.id !== received.id));
     } finally {
       setDeleting(null);
