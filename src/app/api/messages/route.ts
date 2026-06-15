@@ -24,12 +24,12 @@ export async function POST(req: NextRequest) {
   const userId = await getUserFromRequest(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { receiver_id, note_id, note_title, note_content, refs } = await req.json();
+  const { receiver_id, note_id, note_title, note_content, refs, share_type, share_data } = await req.json();
   if (!receiver_id) return NextResponse.json({ error: "送信先が未指定です" }, { status: 400 });
 
   const { data, error } = await supabase
     .from("messages")
-    .insert({ sender_id: userId, receiver_id, note_id, note_title, note_content, refs: refs ?? [] })
+    .insert({ sender_id: userId, receiver_id, note_id, note_title, note_content, refs: refs ?? [], share_type: share_type ?? "note", share_data: share_data ?? {} })
     .select(`
       *,
       sender:profiles!messages_sender_id_fkey(username),
