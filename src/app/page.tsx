@@ -18,11 +18,12 @@ import PapersPanel from "@/components/PapersPanel";
 import ExperimentScheduler from "@/components/ExperimentScheduler";
 import CalendarPanel from "@/components/CalendarPanel";
 import MessagesPanel from "@/components/MessagesPanel";
+import HelpPanel from "@/components/HelpPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, BarChart2, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail } from "lucide-react";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle } from "lucide-react";
 
-type Tab = "tasks" | "suggest" | "chat" | "notes" | "dashboard" | "papers" | "experiment" | "calendar" | "messages";
+type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "help";
 
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
@@ -272,7 +273,6 @@ export default function Home() {
     filterStatus === "all" ? tasks : tasks.filter((t) => t.status === filterStatus);
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "dashboard", label: "ダッシュボード", icon: <BarChart2 className="w-4 h-4" /> },
     { id: "tasks", label: "タスク一覧", icon: <List className="w-4 h-4" /> },
     { id: "suggest", label: "AI提案", icon: <FlaskConical className="w-4 h-4" /> },
     { id: "chat", label: "AI議論", icon: <MessageSquare className="w-4 h-4" /> },
@@ -281,6 +281,7 @@ export default function Home() {
     { id: "experiment", label: "実験スケジュール", icon: <TestTube className="w-4 h-4" /> },
     { id: "calendar", label: "カレンダー", icon: <CalendarDays className="w-4 h-4" /> },
     { id: "messages", label: "メッセージ", icon: <Mail className="w-4 h-4" /> },
+    { id: "help", label: "ヘルプ", icon: <HelpCircle className="w-4 h-4" /> },
   ];
 
   return (
@@ -383,49 +384,57 @@ export default function Home() {
 
         <div className="mt-4">
           {activeTab === "tasks" && (
-            <div>
-              <div className="flex gap-2 mb-4">
-                {(["all", "todo", "in_progress", "done"] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setFilterStatus(s)}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                      filterStatus === s ? "bg-blue-600 text-white" : "bg-white border text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {{ all: "すべて", todo: "未着手", in_progress: "進行中", done: "完了" }[s]}
-                    <span className="ml-1 opacity-70 text-xs">
-                      ({s === "all" ? tasks.length : tasks.filter((t) => t.status === s).length})
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {filteredTasks.length === 0 ? (
-                <div className="text-center py-16 text-gray-400">
-                  <FlaskConical className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>タスクがありません。「AI提案」タブで自動生成するか、追加ボタンから手動で追加できます。</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredTasks.map((task) => (
-                    <div
-                      key={task.id}
-                      id={`task-${task.id}`}
-                      className={highlightTaskId === task.id ? "ring-2 ring-blue-400 rounded-xl transition-all" : ""}
+            <div className="flex gap-4">
+              {/* 左：タスク一覧 */}
+              <div className="flex-1 min-w-0">
+                <div className="flex gap-2 mb-4">
+                  {(["all", "todo", "in_progress", "done"] as const).map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStatus(s)}
+                      className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                        filterStatus === s ? "bg-blue-600 text-white" : "bg-white border text-gray-600 hover:bg-gray-50"
+                      }`}
                     >
-                      <TaskCard
-                        task={task}
-                        onStatusChange={handleStatusChange}
-                        onDelete={handleDelete}
-                        onSyncCalendar={handleSyncCalendar}
-                        onEdit={(task) => setEditingTask(task)}
-                        onNote={(task) => setNoteTask(task)}
-                      />
-                    </div>
+                      {{ all: "すべて", todo: "未着手", in_progress: "進行中", done: "完了" }[s]}
+                      <span className="ml-1 opacity-70 text-xs">
+                        ({s === "all" ? tasks.length : tasks.filter((t) => t.status === s).length})
+                      </span>
+                    </button>
                   ))}
                 </div>
-              )}
+
+                {filteredTasks.length === 0 ? (
+                  <div className="text-center py-16 text-gray-400">
+                    <FlaskConical className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p>タスクがありません。「AI提案」タブで自動生成するか、追加ボタンから手動で追加できます。</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        id={`task-${task.id}`}
+                        className={highlightTaskId === task.id ? "ring-2 ring-blue-400 rounded-xl transition-all" : ""}
+                      >
+                        <TaskCard
+                          task={task}
+                          onStatusChange={handleStatusChange}
+                          onDelete={handleDelete}
+                          onSyncCalendar={handleSyncCalendar}
+                          onEdit={(task) => setEditingTask(task)}
+                          onNote={(task) => setNoteTask(task)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 右：ダッシュボード */}
+              <div className="w-80 flex-shrink-0">
+                <DashboardPanel tasks={tasks} />
+              </div>
             </div>
           )}
 
@@ -443,8 +452,6 @@ export default function Home() {
             <NotesPanel initialNoteId={highlightNoteId} userId={user.id} authToken={session?.access_token} />
           )}
 
-          {activeTab === "dashboard" && <DashboardPanel tasks={tasks} />}
-
           {activeTab === "papers" && (
             <PapersPanel authToken={session?.access_token} />
           )}
@@ -460,6 +467,8 @@ export default function Home() {
           {activeTab === "messages" && (
             <MessagesPanel userId={user.id} authToken={session?.access_token} notes={notesList} />
           )}
+
+          {activeTab === "help" && <HelpPanel />}
         </div>
       </main>
 
