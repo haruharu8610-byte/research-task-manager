@@ -37,6 +37,7 @@ export default function Home() {
   const [highlightNoteId, setHighlightNoteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>("tasks");
   const [experimentTabKey, setExperimentTabKey] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [filterStatus, setFilterStatus] = useState<Task["status"] | "all">("all");
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -88,6 +89,14 @@ export default function Home() {
     fetch("/api/notes", { headers: authHeaders() })
       .then(r => r.json())
       .then(d => setNotesList(Array.isArray(d) ? d.map((n: { id: string; title: string; content: string; refs?: { url: string; title: string; authors?: string; year?: string }[] }) => ({ id: n.id, title: n.title, content: n.content, refs: n.refs ?? [] })) : []));
+
+    fetch("/api/messages", { headers: authHeaders() })
+      .then(r => r.json())
+      .then(d => {
+        if (Array.isArray(d) && user) {
+          setUnreadMessageCount(d.filter((m: { receiver_id: string }) => m.receiver_id === user.id).length);
+        }
+      });
 
     const params = new URLSearchParams(window.location.search);
     if (params.get("calendar") === "connected") {
@@ -345,13 +354,22 @@ export default function Home() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id); if (tab.id === "experiment") setExperimentTabKey(k => k + 1); }}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (tab.id === "experiment") setExperimentTabKey(k => k + 1);
+                if (tab.id === "messages") setUnreadMessageCount(0);
+              }}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === tab.id ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
               {tab.icon}
               {tab.label}
+              {tab.id === "messages" && unreadMessageCount > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                  {unreadMessageCount}
+                </span>
+              )}
             </button>
           ))}
         </div>
