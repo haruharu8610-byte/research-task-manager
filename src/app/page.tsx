@@ -21,6 +21,7 @@ import MessagesPanel from "@/components/MessagesPanel";
 import HelpPanel from "@/components/HelpPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
+import Image from "next/image";
 import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle } from "lucide-react";
 
 type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "help";
@@ -289,7 +290,7 @@ export default function Home() {
       <header className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FlaskConical className="w-6 h-6 text-blue-600" />
+            <Image src="/icon.png" alt="アイコン" width={32} height={32} className="rounded-lg" />
             <h1 className="text-xl font-bold text-gray-900">研究タスクマネージャー</h1>
           </div>
           <div className="flex items-center gap-3">

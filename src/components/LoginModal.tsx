@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { FlaskConical, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginModal() {
@@ -32,8 +33,8 @@ export default function LoginModal() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
-        <div className="flex items-center gap-2 justify-center mb-6">
-          <FlaskConical className="w-7 h-7 text-blue-600" />
+        <div className="flex flex-col items-center gap-3 mb-6">
+          <Image src="/icon.png" alt="アプリアイコン" width={80} height={80} className="rounded-2xl" />
           <h1 className="text-2xl font-bold text-gray-900">研究タスクマネージャー</h1>
         </div>
 
