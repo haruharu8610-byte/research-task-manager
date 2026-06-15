@@ -128,9 +128,9 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
   const handleSaveRefToLibrary = async (ref: SharedRef) => {
     const doiMatch = ref.url.match(/10\.\d{4,}\/\S+/);
     const doi = doiMatch ? doiMatch[0] : "";
-    await fetch("/api/papers", {
+    const res = await fetch("/api/papers", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+      headers: headers(),
       body: JSON.stringify({
         title: ref.title,
         authors: ref.authors ?? "",
@@ -144,6 +144,11 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
         pubmed_id: "",
       }),
     });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert("保存に失敗しました: " + (err.error ?? res.status));
+      return;
+    }
     setSavedRefUrls(prev => new Set(Array.from(prev).concat(ref.url)));
   };
 
