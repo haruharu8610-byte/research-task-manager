@@ -25,7 +25,7 @@ export default function ChatPanel({ tasks, authToken }: Props) {
       <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
         <Bot className="w-14 h-14 text-gray-300" />
         <p className="text-lg font-semibold text-gray-700">AI議論を利用できません</p>
-        <p className="text-sm text-gray-500 max-w-sm">APIキーが設定されていません。右上の「🔑 APIキー」ボタンからAnthropicのAPIキーを登録してください。</p>
+        <p className="text-sm text-gray-500 max-w-sm">この機能はAnthropicの有料APIキーが必要です。Anthropicのサイトでクレジットを購入し、右上の「🔑 APIキー」ボタンからAPIキーを登録してください。</p>
       </div>
     );
   }
