@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer, Share2, Trash } from "lucide-react";
+import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer, Share2, Trash, LibraryBig, Check } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale/ja";
 
@@ -82,6 +82,7 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
   const [sharedNotes, setSharedNotes] = useState<SharedNote[]>([]);
   const [selectedShared, setSelectedShared] = useState<SharedNote | null>(null);
   const [sharedLoading, setSharedLoading] = useState(false);
+  const [savedRefUrls, setSavedRefUrls] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refUrl, setRefUrl] = useState("");
@@ -123,6 +124,28 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
     if (tab === "shared") fetchSharedNotes();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  const handleSaveRefToLibrary = async (ref: SharedRef) => {
+    const doiMatch = ref.url.match(/10\.\d{4,}\/\S+/);
+    const doi = doiMatch ? doiMatch[0] : "";
+    await fetch("/api/papers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+      body: JSON.stringify({
+        title: ref.title,
+        authors: ref.authors ?? "",
+        year: ref.year ?? "",
+        doi,
+        url: ref.url,
+        journal: "",
+        abstract: "",
+        memo: "",
+        tags: [],
+        pubmed_id: "",
+      }),
+    });
+    setSavedRefUrls(prev => new Set(Array.from(prev).concat(ref.url)));
+  };
 
   const deleteSharedNote = async (id: string) => {
     if (!confirm("この共有ノートを削除しますか？")) return;
@@ -440,9 +463,22 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
                   <div className="space-y-1">
                     {(selectedShared.refs ?? []).map((ref, idx) => (
                       <div key={idx} className="bg-gray-50 rounded-lg px-3 py-2">
-                        <p className="text-xs font-medium text-gray-800">{ref.title}</p>
-                        {ref.authors && <p className="text-xs text-gray-500">{ref.authors}{ref.year ? ` (${ref.year})` : ""}</p>}
-                        <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline truncate block">{ref.url}</a>
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-gray-800">{ref.title}</p>
+                            {ref.authors && <p className="text-xs text-gray-500">{ref.authors}{ref.year ? ` (${ref.year})` : ""}</p>}
+                            <a href={ref.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 hover:underline truncate block">{ref.url}</a>
+                          </div>
+                          <button
+                            onClick={() => handleSaveRefToLibrary(ref)}
+                            disabled={savedRefUrls.has(ref.url)}
+                            className={`flex-shrink-0 flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${savedRefUrls.has(ref.url) ? "bg-green-100 text-green-600 cursor-default" : "bg-blue-50 text-blue-600 hover:bg-blue-100"}`}
+                            title="マイライブラリに保存"
+                          >
+                            {savedRefUrls.has(ref.url) ? <Check className="w-3 h-3" /> : <LibraryBig className="w-3 h-3" />}
+                            {savedRefUrls.has(ref.url) ? "保存済み" : "ライブラリへ"}
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
