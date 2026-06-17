@@ -20,12 +20,13 @@ import CalendarPanel from "@/components/CalendarPanel";
 import MessagesPanel from "@/components/MessagesPanel";
 import HelpPanel from "@/components/HelpPanel";
 import MeetingsPanel from "@/components/MeetingsPanel";
+import SettingsPanel from "@/components/SettingsPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
 import Image from "next/image";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle, Video } from "lucide-react";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle, Video, Settings } from "lucide-react";
 
-type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "meetings" | "help";
+type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "meetings" | "settings" | "help";
 
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
@@ -285,6 +286,7 @@ export default function Home() {
     { id: "messages", label: "メッセージ", icon: <Mail className="w-4 h-4" /> },
     { id: "meetings", label: "会議メモ", icon: <Video className="w-4 h-4" /> },
     { id: "help", label: "ヘルプ", icon: <HelpCircle className="w-4 h-4" /> },
+    { id: "settings", label: "設定", icon: <Settings className="w-4 h-4" /> },
   ];
 
   return (
@@ -311,21 +313,12 @@ export default function Home() {
               </span>
             )}
             <button
-              onClick={() => setShowApiKey(true)}
+              onClick={() => setActiveTab("settings")}
               className="flex items-center gap-1.5 text-sm text-purple-600 border border-purple-200 rounded-lg px-3 py-1.5 hover:bg-purple-50 transition-colors"
             >
-              <Key className="w-4 h-4" />
-              APIキー
+              <Settings className="w-4 h-4" />
+              設定
             </button>
-            <a
-              href="https://console.anthropic.com/settings/billing"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm text-purple-600 border border-purple-200 rounded-lg px-3 py-1.5 hover:bg-purple-50 transition-colors"
-            >
-              <Wallet className="w-4 h-4" />
-              残高確認
-            </a>
             <button
               onClick={() => setShowSearch(true)}
               className="flex items-center gap-1.5 text-sm text-gray-600 border rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
@@ -476,6 +469,8 @@ export default function Home() {
           )}
 
           {activeTab === "help" && <HelpPanel />}
+
+          {activeTab === "settings" && <SettingsPanel />}
         </div>
       </main>
 
