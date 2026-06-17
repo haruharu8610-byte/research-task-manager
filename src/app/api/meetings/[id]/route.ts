@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabaseServer";
 import { getUserFromRequest } from "@/lib/auth";
 
 export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
