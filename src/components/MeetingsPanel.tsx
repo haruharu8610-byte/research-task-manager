@@ -193,10 +193,12 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   };
 
   const fetchMeetings = async (q = "") => {
-    const res = await fetch(`/api/meetings${q ? `?q=${encodeURIComponent(q)}` : ""}`, {
-      headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-    });
-    setMeetings(await res.json());
+    try {
+      const res = await fetch(`/api/meetings${q ? `?q=${encodeURIComponent(q)}` : ""}`, {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (res.ok) setMeetings(await res.json());
+    } catch { /* ignore */ }
   };
 
   const saveEdit = async () => {
