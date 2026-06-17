@@ -47,11 +47,8 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
     ...(apiKey ? { "x-api-key": apiKey } : {}),
   });
 
-  const compressAudio = async (blob: Blob, filename: string): Promise<{ blob: Blob; name: string }> => {
-    const MAX = 2 * 1024 * 1024;
-    if (blob.size <= MAX) return { blob, name: filename };
-
-    // Decode audio with Web Audio API then encode to MP3 with lamejs
+  // Decode audio, downsample to 8kHz mono, split into WAV chunks ≤ 3MB each
+  const decodeAndChunk = async (blob: Blob): Promise<Blob[]> => {
     const arrayBuffer = await blob.arrayBuffer();
     const audioCtx = new AudioContext();
     let decoded: AudioBuffer;
@@ -61,89 +58,73 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
       await audioCtx.close();
     }
 
-    // Mix down to mono
+    const TARGET_RATE = 8000;
     const srcRate = decoded.sampleRate;
-    const numChannels = decoded.numberOfChannels;
-    const srcLength = decoded.length;
-    const monoSrc = new Float32Array(srcLength);
-    for (let i = 0; i < srcLength; i++) {
-      let sum = 0;
-      for (let c = 0; c < numChannels; c++) sum += decoded.getChannelData(c)[i];
-      monoSrc[i] = sum / numChannels;
-    }
-
-    // Downsample to 16kHz
-    const TARGET_RATE = 16000;
     const ratio = srcRate / TARGET_RATE;
-    const outLength = Math.floor(srcLength / ratio);
-    const monoData = new Float32Array(outLength);
-    for (let i = 0; i < outLength; i++) {
-      monoData[i] = monoSrc[Math.floor(i * ratio)];
-    }
-    const numSamples = outLength;
+    const srcLen = decoded.length;
+    const outLen = Math.floor(srcLen / ratio);
+    const numChannels = decoded.numberOfChannels;
 
-    // Convert float32 to int16
-    const int16 = new Int16Array(numSamples);
-    for (let i = 0; i < numSamples; i++) {
-      const s = Math.max(-1, Math.min(1, monoData[i]));
-      int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    // Mix down to mono at 8kHz
+    const mono = new Int16Array(outLen);
+    for (let i = 0; i < outLen; i++) {
+      let sum = 0;
+      for (let c = 0; c < numChannels; c++) sum += decoded.getChannelData(c)[Math.floor(i * ratio)];
+      const s = Math.max(-1, Math.min(1, sum / numChannels));
+      mono[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
     }
 
-    // Encode to MP3 with lamejs at 16kbps mono
-    const { Mp3Encoder } = await import("lamejs");
-    const encoder = new Mp3Encoder(1, 16000, 8);
-    const blockSize = 1152;
-    const mp3Parts: Uint8Array[] = [];
-    for (let offset = 0; offset < int16.length; offset += blockSize) {
-      const chunk = int16.subarray(offset, offset + blockSize);
-      const encoded = encoder.encodeBuffer(chunk);
-      if (encoded.length > 0) mp3Parts.push(encoded);
-    }
-    const flushed = encoder.flush();
-    if (flushed.length > 0) mp3Parts.push(flushed);
+    // Write WAV header
+    const writeWav = (samples: Int16Array): Blob => {
+      const byteLen = samples.length * 2;
+      const buf = new ArrayBuffer(44 + byteLen);
+      const view = new DataView(buf);
+      const w = (off: number, v: number, s: number) => s === 4 ? view.setUint32(off, v, true) : view.setUint16(off, v, true);
+      const enc = new TextEncoder();
+      const setStr = (off: number, s: string) => enc.encode(s).forEach((b, i) => view.setUint8(off + i, b));
+      setStr(0, "RIFF"); w(4, 36 + byteLen, 4); setStr(8, "WAVE");
+      setStr(12, "fmt "); w(16, 16, 4); w(20, 1, 2); w(22, 1, 2);
+      w(24, TARGET_RATE, 4); w(28, TARGET_RATE * 2, 4); w(32, 2, 2); w(34, 16, 2);
+      setStr(36, "data"); w(40, byteLen, 4);
+      new Int16Array(buf, 44).set(samples);
+      return new Blob([buf], { type: "audio/wav" });
+    };
 
-    const mp3Blob = new Blob(mp3Parts.map(p => p.buffer as ArrayBuffer), { type: "audio/mpeg" });
-    return { blob: mp3Blob, name: "compressed.mp3" };
+    // Split into chunks of ~3MB (≈ 3MB / 2bytes = 1.5M samples at 8kHz = ~187 seconds)
+    const CHUNK_SAMPLES = 180 * TARGET_RATE; // 3 minutes per chunk
+    const chunks: Blob[] = [];
+    for (let offset = 0; offset < outLen; offset += CHUNK_SAMPLES) {
+      chunks.push(writeWav(mono.subarray(offset, offset + CHUNK_SAMPLES)));
+    }
+    return chunks;
   };
 
   const sendAudio = async (blob: Blob, filename: string) => {
     setTranscribing(true);
     try {
-      // Get Groq key from server (authenticated endpoint)
-      const keyRes = await fetch("/api/meetings/groq-key", {
-        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-      });
-      if (!keyRes.ok) throw new Error("Groqキー取得失敗");
-      const { key: groqKey } = await keyRes.json();
+      // Split audio into small WAV chunks (8kHz mono, ≤3MB each) to stay under Vercel limit
+      const chunks = await decodeAndChunk(blob);
+      const authHdr: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
-      // Compress if needed
-      let compressed: Blob;
-      let name: string;
-      try {
-        const r = await compressAudio(blob, filename);
-        compressed = r.blob;
-        name = r.name;
-      } catch (e: unknown) {
-        // If compression fails, use original
-        compressed = blob;
-        name = filename;
-        console.warn("圧縮スキップ:", e);
+      const parts: string[] = [];
+      for (let i = 0; i < chunks.length; i++) {
+        const form = new FormData();
+        form.append("file", chunks[i], `chunk${i}.wav`);
+        const res = await fetch("/api/meetings/transcribe", {
+          method: "POST",
+          headers: authHdr,
+          body: form,
+        });
+        const text = await res.text();
+        let data: { transcript?: string; error?: string };
+        try { data = JSON.parse(text); } catch { throw new Error(`サーバーエラー(${res.status}): ${text.slice(0, 200)}`); }
+        if (!res.ok) throw new Error(`APIエラー(${res.status}): ${data.error}`);
+        parts.push(data.transcript!);
       }
 
-      // Call Groq directly from browser (bypasses Vercel body size limit)
-      const form = new FormData();
-      form.append("file", compressed, name);
-      form.append("model", "whisper-large-v3");
-      form.append("language", "ja");
-      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${groqKey}` },
-        body: form,
-      });
-      const groqData = await groqRes.json();
-      if (!groqRes.ok) throw new Error(groqData.error?.message ?? JSON.stringify(groqData));
-      setTranscript(groqData.text);
-      await analyzeText(groqData.text);
+      const fullTranscript = parts.join(" ");
+      setTranscript(fullTranscript);
+      await analyzeText(fullTranscript);
     } catch (e: unknown) {
       alert("文字起こし失敗: " + (e instanceof Error ? e.message : String(e)));
     } finally {
