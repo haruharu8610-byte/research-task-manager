@@ -47,11 +47,26 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
     ...(apiKey ? { "x-api-key": apiKey } : {}),
   });
 
+  const compressAudio = async (blob: Blob, filename: string): Promise<{ blob: Blob; name: string }> => {
+    const MAX = 4 * 1024 * 1024; // 4MB
+    if (blob.size <= MAX) return { blob, name: filename };
+
+    const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+    const { fetchFile } = await import("@ffmpeg/util");
+    const ff = new FFmpeg();
+    await ff.load();
+    await ff.writeFile("input", await fetchFile(blob));
+    await ff.exec(["-i", "input", "-ar", "16000", "-ac", "1", "-b:a", "32k", "output.mp3"]);
+    const data = await ff.readFile("output.mp3");
+    return { blob: new Blob([data], { type: "audio/mpeg" }), name: "compressed.mp3" };
+  };
+
   const sendAudio = async (blob: Blob, filename: string) => {
     setTranscribing(true);
     try {
+      const { blob: compressed, name } = await compressAudio(blob, filename);
       const form = new FormData();
-      form.append("file", blob, filename);
+      form.append("file", compressed, name);
       const res = await fetch("/api/meetings/transcribe", {
         method: "POST",
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},

@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@supabase/supabase-js": "^2.50.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -38,6 +40,8 @@
     "docx@9.7.1": true,
     "file-saver@2.0.5": true,
     "groq-sdk@1.2.1": true,
-    "jspdf@4.2.1": true
+    "jspdf@4.2.1": true,
+    "@ffmpeg/ffmpeg@0.12.15": true,
+    "@ffmpeg/util@0.12.2": true
   }
 }
