@@ -313,25 +313,11 @@ export default function Home() {
               </span>
             )}
             <button
-              onClick={() => setActiveTab("settings")}
-              className="flex items-center gap-1.5 text-sm text-purple-600 border border-purple-200 rounded-lg px-3 py-1.5 hover:bg-purple-50 transition-colors"
-            >
-              <Settings className="w-4 h-4" />
-              設定
-            </button>
-            <button
               onClick={() => setShowSearch(true)}
               className="flex items-center gap-1.5 text-sm text-gray-600 border rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors"
             >
               <Search className="w-4 h-4" />
               検索
-            </button>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1.5 bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-medium hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              タスク追加
             </button>
             <div className="flex items-center gap-2 border-l pl-3">
               <User className="w-4 h-4 text-gray-400" />
@@ -351,7 +337,7 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         <StatsBar tasks={tasks} />
 
-        <div className="flex gap-1 mt-6 bg-white border rounded-xl p-1 overflow-x-auto">
+        <div className="flex gap-1 mt-6 bg-white border rounded-xl p-1 overflow-x-auto w-full">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -383,7 +369,7 @@ export default function Home() {
             <div className="flex gap-4">
               {/* 左：タスク一覧 */}
               <div className="flex-1 min-w-0">
-                <div className="flex gap-2 mb-4">
+                <div className="flex gap-2 mb-4 items-center">
                   {(["all", "todo", "in_progress", "done"] as const).map((s) => (
                     <button
                       key={s}
@@ -398,6 +384,13 @@ export default function Home() {
                       </span>
                     </button>
                   ))}
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    className="ml-auto flex items-center gap-1.5 bg-blue-600 text-white rounded-lg px-4 py-1.5 text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    タスク追加
+                  </button>
                 </div>
 
                 {filteredTasks.length === 0 ? (
