@@ -109,18 +109,37 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   const sendAudio = async (blob: Blob, filename: string) => {
     setTranscribing(true);
     try {
-      const { blob: compressed, name } = await compressAudio(blob, filename);
+      let compressed: Blob;
+      let name: string;
+      try {
+        const r = await compressAudio(blob, filename);
+        compressed = r.blob;
+        name = r.name;
+      } catch (e: unknown) {
+        throw new Error("圧縮失敗: " + (e instanceof Error ? e.message : String(e)));
+      }
       const form = new FormData();
       form.append("file", compressed, name);
-      const res = await fetch("/api/meetings/transcribe", {
-        method: "POST",
-        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-        body: form,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setTranscript(data.transcript);
-      await analyzeText(data.transcript);
+      let res: Response;
+      try {
+        res = await fetch("/api/meetings/transcribe", {
+          method: "POST",
+          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+          body: form,
+        });
+      } catch (e: unknown) {
+        throw new Error("送信失敗: " + (e instanceof Error ? e.message : String(e)));
+      }
+      const text = await res.text();
+      let data: { transcript?: string; error?: string };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`サーバーエラー(${res.status}): ${text.slice(0, 200)}`);
+      }
+      if (!res.ok) throw new Error(`APIエラー(${res.status}): ${data.error}`);
+      setTranscript(data.transcript!);
+      await analyzeText(data.transcript!);
     } catch (e: unknown) {
       alert("文字起こし失敗: " + (e instanceof Error ? e.message : String(e)));
     } finally {
