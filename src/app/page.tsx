@@ -276,12 +276,12 @@ export default function Home() {
     filterStatus === "all" ? tasks : tasks.filter((t) => t.status === filterStatus);
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "tasks", label: "タスク一覧", icon: <List className="w-4 h-4" /> },
+    { id: "tasks", label: "タスク", icon: <List className="w-4 h-4" /> },
     { id: "suggest", label: "AI提案", icon: <FlaskConical className="w-4 h-4" /> },
     { id: "chat", label: "AI議論", icon: <MessageSquare className="w-4 h-4" /> },
-    { id: "notes", label: "研究ノート", icon: <BookOpen className="w-4 h-4" /> },
-    { id: "papers", label: "論文管理", icon: <Library className="w-4 h-4" /> },
-    { id: "experiment", label: "実験スケジュール", icon: <TestTube className="w-4 h-4" /> },
+    { id: "notes", label: "ノート", icon: <BookOpen className="w-4 h-4" /> },
+    { id: "papers", label: "論文", icon: <Library className="w-4 h-4" /> },
+    { id: "experiment", label: "実験", icon: <TestTube className="w-4 h-4" /> },
     { id: "calendar", label: "カレンダー", icon: <CalendarDays className="w-4 h-4" /> },
     { id: "messages", label: "メッセージ", icon: <Mail className="w-4 h-4" /> },
     { id: "meetings", label: "会議メモ", icon: <Video className="w-4 h-4" /> },
@@ -351,7 +351,7 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         <StatsBar tasks={tasks} />
 
-        <div className="flex gap-1 mt-6 bg-white border rounded-xl p-1 w-fit">
+        <div className="flex gap-1 mt-6 bg-white border rounded-xl p-1 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -363,7 +363,7 @@ export default function Home() {
                   if (user) localStorage.setItem(`messages_last_read_${user.id}`, new Date().toISOString());
                 }
               }}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-100"
               }`}
             >
