@@ -48,17 +48,47 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   });
 
   const compressAudio = async (blob: Blob, filename: string): Promise<{ blob: Blob; name: string }> => {
-    const MAX = 4 * 1024 * 1024; // 4MB
+    const MAX = 4 * 1024 * 1024;
     if (blob.size <= MAX) return { blob, name: filename };
 
-    const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-    const { fetchFile } = await import("@ffmpeg/util");
-    const ff = new FFmpeg();
-    await ff.load();
-    await ff.writeFile("input", await fetchFile(blob));
-    await ff.exec(["-i", "input", "-ar", "16000", "-ac", "1", "-b:a", "32k", "output.mp3"]);
-    const data = await ff.readFile("output.mp3");
-    return { blob: new Blob([data], { type: "audio/mpeg" }), name: "compressed.mp3" };
+    // Decode audio with Web Audio API then encode to MP3 with lamejs
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioCtx = new AudioContext({ sampleRate: 16000 });
+    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    await audioCtx.close();
+
+    // Mix down to mono at 16kHz
+    const numSamples = decoded.length;
+    const numChannels = decoded.numberOfChannels;
+    const monoData = new Float32Array(numSamples);
+    for (let i = 0; i < numSamples; i++) {
+      let sum = 0;
+      for (let c = 0; c < numChannels; c++) sum += decoded.getChannelData(c)[i];
+      monoData[i] = sum / numChannels;
+    }
+
+    // Convert float32 to int16
+    const int16 = new Int16Array(numSamples);
+    for (let i = 0; i < numSamples; i++) {
+      const s = Math.max(-1, Math.min(1, monoData[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+    }
+
+    // Encode to MP3 with lamejs at 16kbps mono
+    const { Mp3Encoder } = await import("lamejs");
+    const encoder = new Mp3Encoder(1, 16000, 16);
+    const blockSize = 1152;
+    const mp3Parts: Uint8Array[] = [];
+    for (let offset = 0; offset < int16.length; offset += blockSize) {
+      const chunk = int16.subarray(offset, offset + blockSize);
+      const encoded = encoder.encodeBuffer(chunk);
+      if (encoded.length > 0) mp3Parts.push(encoded);
+    }
+    const flushed = encoder.flush();
+    if (flushed.length > 0) mp3Parts.push(flushed);
+
+    const mp3Blob = new Blob(mp3Parts.map(p => p.buffer as ArrayBuffer), { type: "audio/mpeg" });
+    return { blob: mp3Blob, name: "compressed.mp3" };
   };
 
   const sendAudio = async (blob: Blob, filename: string) => {
