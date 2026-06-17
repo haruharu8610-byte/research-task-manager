@@ -48,7 +48,7 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   });
 
   const compressAudio = async (blob: Blob, filename: string): Promise<{ blob: Blob; name: string }> => {
-    const MAX = 4 * 1024 * 1024;
+    const MAX = 2 * 1024 * 1024;
     if (blob.size <= MAX) return { blob, name: filename };
 
     // Decode audio with Web Audio API then encode to MP3 with lamejs
@@ -91,7 +91,7 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
 
     // Encode to MP3 with lamejs at 16kbps mono
     const { Mp3Encoder } = await import("lamejs");
-    const encoder = new Mp3Encoder(1, 16000, 16);
+    const encoder = new Mp3Encoder(1, 16000, 8);
     const blockSize = 1152;
     const mp3Parts: Uint8Array[] = [];
     for (let offset = 0; offset < int16.length; offset += blockSize) {
