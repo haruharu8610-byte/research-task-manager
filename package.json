@@ -11,13 +11,17 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
     "@supabase/supabase-js": "^2.50.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "docx": "^9.7.1",
+    "file-saver": "^2.0.5",
+    "groq-sdk": "^1.2.1",
+    "jspdf": "^4.2.1",
+    "lucide-react": "^0.400.0",
     "next": "14.2.5",
     "react": "^18",
     "react-dom": "^18",
-    "date-fns": "^3.6.0",
-    "react-markdown": "^9.0.1",
-    "lucide-react": "^0.400.0",
-    "clsx": "^2.1.1"
+    "react-markdown": "^9.0.1"
   },
   "devDependencies": {
     "@types/node": "^20",
@@ -28,5 +32,11 @@
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
     "typescript": "^5"
+  },
+  "allowScripts": {
+    "docx@9.7.1": true,
+    "file-saver@2.0.5": true,
+    "groq-sdk@1.2.1": true,
+    "jspdf@4.2.1": true
   }
 }

@@ -19,12 +19,13 @@ import ExperimentScheduler from "@/components/ExperimentScheduler";
 import CalendarPanel from "@/components/CalendarPanel";
 import MessagesPanel from "@/components/MessagesPanel";
 import HelpPanel from "@/components/HelpPanel";
+import MeetingsPanel from "@/components/MeetingsPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
 import Image from "next/image";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle } from "lucide-react";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle, Video } from "lucide-react";
 
-type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "help";
+type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "meetings" | "help";
 
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
@@ -282,6 +283,7 @@ export default function Home() {
     { id: "experiment", label: "実験スケジュール", icon: <TestTube className="w-4 h-4" /> },
     { id: "calendar", label: "カレンダー", icon: <CalendarDays className="w-4 h-4" /> },
     { id: "messages", label: "メッセージ", icon: <Mail className="w-4 h-4" /> },
+    { id: "meetings", label: "会議メモ", icon: <Video className="w-4 h-4" /> },
     { id: "help", label: "ヘルプ", icon: <HelpCircle className="w-4 h-4" /> },
   ];
 
@@ -467,6 +469,10 @@ export default function Home() {
 
           {activeTab === "messages" && (
             <MessagesPanel userId={user.id} authToken={session?.access_token} notes={notesList} />
+          )}
+
+          {activeTab === "meetings" && (
+            <MeetingsPanel authToken={session?.access_token} apiKey={typeof window !== "undefined" ? localStorage.getItem("anthropic_api_key") ?? undefined : undefined} />
           )}
 
           {activeTab === "help" && <HelpPanel />}
