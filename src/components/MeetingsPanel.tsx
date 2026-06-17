@@ -53,19 +53,34 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
 
     // Decode audio with Web Audio API then encode to MP3 with lamejs
     const arrayBuffer = await blob.arrayBuffer();
-    const audioCtx = new AudioContext({ sampleRate: 16000 });
-    const decoded = await audioCtx.decodeAudioData(arrayBuffer);
-    await audioCtx.close();
+    const audioCtx = new AudioContext();
+    let decoded: AudioBuffer;
+    try {
+      decoded = await audioCtx.decodeAudioData(arrayBuffer);
+    } finally {
+      await audioCtx.close();
+    }
 
-    // Mix down to mono at 16kHz
-    const numSamples = decoded.length;
+    // Mix down to mono
+    const srcRate = decoded.sampleRate;
     const numChannels = decoded.numberOfChannels;
-    const monoData = new Float32Array(numSamples);
-    for (let i = 0; i < numSamples; i++) {
+    const srcLength = decoded.length;
+    const monoSrc = new Float32Array(srcLength);
+    for (let i = 0; i < srcLength; i++) {
       let sum = 0;
       for (let c = 0; c < numChannels; c++) sum += decoded.getChannelData(c)[i];
-      monoData[i] = sum / numChannels;
+      monoSrc[i] = sum / numChannels;
     }
+
+    // Downsample to 16kHz
+    const TARGET_RATE = 16000;
+    const ratio = srcRate / TARGET_RATE;
+    const outLength = Math.floor(srcLength / ratio);
+    const monoData = new Float32Array(outLength);
+    for (let i = 0; i < outLength; i++) {
+      monoData[i] = monoSrc[Math.floor(i * ratio)];
+    }
+    const numSamples = outLength;
 
     // Convert float32 to int16
     const int16 = new Int16Array(numSamples);
