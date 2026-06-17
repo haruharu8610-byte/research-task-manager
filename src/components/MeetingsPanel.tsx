@@ -109,6 +109,14 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   const sendAudio = async (blob: Blob, filename: string) => {
     setTranscribing(true);
     try {
+      // Get Groq key from server (authenticated endpoint)
+      const keyRes = await fetch("/api/meetings/groq-key", {
+        headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
+      });
+      if (!keyRes.ok) throw new Error("Groqキー取得失敗");
+      const { key: groqKey } = await keyRes.json();
+
+      // Compress if needed
       let compressed: Blob;
       let name: string;
       try {
@@ -116,30 +124,26 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
         compressed = r.blob;
         name = r.name;
       } catch (e: unknown) {
-        throw new Error("圧縮失敗: " + (e instanceof Error ? e.message : String(e)));
+        // If compression fails, use original
+        compressed = blob;
+        name = filename;
+        console.warn("圧縮スキップ:", e);
       }
+
+      // Call Groq directly from browser (bypasses Vercel body size limit)
       const form = new FormData();
       form.append("file", compressed, name);
-      let res: Response;
-      try {
-        res = await fetch("/api/meetings/transcribe", {
-          method: "POST",
-          headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
-          body: form,
-        });
-      } catch (e: unknown) {
-        throw new Error("送信失敗: " + (e instanceof Error ? e.message : String(e)));
-      }
-      const text = await res.text();
-      let data: { transcript?: string; error?: string };
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(`サーバーエラー(${res.status}): ${text.slice(0, 200)}`);
-      }
-      if (!res.ok) throw new Error(`APIエラー(${res.status}): ${data.error}`);
-      setTranscript(data.transcript!);
-      await analyzeText(data.transcript!);
+      form.append("model", "whisper-large-v3");
+      form.append("language", "ja");
+      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${groqKey}` },
+        body: form,
+      });
+      const groqData = await groqRes.json();
+      if (!groqRes.ok) throw new Error(groqData.error?.message ?? JSON.stringify(groqData));
+      setTranscript(groqData.text);
+      await analyzeText(groqData.text);
     } catch (e: unknown) {
       alert("文字起こし失敗: " + (e instanceof Error ? e.message : String(e)));
     } finally {
