@@ -91,7 +91,7 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
     };
 
     // Split into chunks of ~3MB (≈ 3MB / 2bytes = 1.5M samples at 8kHz = ~187 seconds)
-    const CHUNK_SAMPLES = 180 * TARGET_RATE; // 3 minutes per chunk
+    const CHUNK_SAMPLES = 30 * TARGET_RATE; // 30 seconds per chunk
     const chunks: Blob[] = [];
     for (let offset = 0; offset < outLen; offset += CHUNK_SAMPLES) {
       chunks.push(writeWav(mono.subarray(offset, offset + CHUNK_SAMPLES)));

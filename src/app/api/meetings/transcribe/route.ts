@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUserFromRequest } from "@/lib/auth";
 import Groq from "groq-sdk";
 
-export const config = {
-  api: { bodyParser: false },
-};
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const userId = await getUserFromRequest(req);
