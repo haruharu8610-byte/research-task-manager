@@ -6,12 +6,12 @@ export async function POST(req: NextRequest) {
   const userId = await getUserFromRequest(req);
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const groqKey = process.env.GROQ_API_KEY;
+  if (!groqKey) return NextResponse.json({ error: "Groq APIキーが設定されていません" }, { status: 500 });
+
   const form = await req.formData();
   const file = form.get("file") as File;
-  const groqKey = form.get("groq_key") as string;
-
   if (!file) return NextResponse.json({ error: "ファイルがありません" }, { status: 400 });
-  if (!groqKey) return NextResponse.json({ error: "Groq APIキーが必要です" }, { status: 400 });
 
   const client = new Groq({ apiKey: groqKey });
   try {

@@ -24,7 +24,6 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState("");
   const [transcript, setTranscript] = useState("");
-  const [groqKey, setGroqKey] = useState(() => typeof window !== "undefined" ? localStorage.getItem("groq_key") ?? "" : "");
   const [transcribing, setTranscribing] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [recording, setRecording] = useState(false);
@@ -49,12 +48,10 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   });
 
   const sendAudio = async (blob: Blob, filename: string) => {
-    if (!groqKey) { alert("Groq APIキーを入力してください"); return; }
     setTranscribing(true);
     try {
       const form = new FormData();
       form.append("file", blob, filename);
-      form.append("groq_key", groqKey);
       const res = await fetch("/api/meetings/transcribe", {
         method: "POST",
         headers: authToken ? { Authorization: `Bearer ${authToken}` } : {},
@@ -201,13 +198,6 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
       {view === "new" && (
         <div className="space-y-4">
           <div className="bg-white rounded-xl border p-5 space-y-4">
-            {/* Groqキー */}
-            <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">Groq APIキー（音声文字起こし用）</label>
-              <input type="password" value={groqKey} onChange={e => { setGroqKey(e.target.value); localStorage.setItem("groq_key", e.target.value); }}
-                placeholder="gsk_..." className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">会議タイトル</label>
