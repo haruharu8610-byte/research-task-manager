@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   HelpCircle, List, BarChart2, FlaskConical, MessageSquare, BookOpen,
   Library, TestTube, CalendarDays, Mail, ChevronDown, ChevronUp,
-  Key, Search, Plus, Share2, FolderOpen, Wallet
+  Key, Search, Plus, Share2, FolderOpen, Wallet, Mic, Settings
 } from "lucide-react";
 
 interface Section {
@@ -19,20 +19,24 @@ const sections: Section[] = [
   {
     id: "start",
     icon: <HelpCircle className="w-4 h-4" />,
-    title: "はじめに",
+    title: "はじめに・準備",
     color: "blue",
     items: [
       {
         q: "このアプリでできることは？",
-        a: "研究に必要なタスク管理・実験スケジュール・論文管理・研究ノート・AI支援・メンバー間のメッセージ共有をまとめて行えるツールです。",
+        a: "研究に必要な機能をひとまとめにしたツールです。タスク管理・AI提案・AI議論・研究ノート・論文管理・実験スケジュール・カレンダー連携・メンバー間メッセージ・会議メモ自動整理など、研究活動をトータルでサポートします。",
       },
       {
-        q: "まず何をすればいい？",
-        a: "① Googleカレンダー連携（ヘッダーのボタン）→ ② AI機能を使う場合はAnthropicのAPIキーを登録（🔑 APIキーボタン）→ ③ タスクを追加して研究を始めましょう。",
+        q: "最初にやることは？",
+        a: "① ヘッダーの「Googleカレンダー連携」でカレンダーを接続 → ② 設定タブでAnthropicのAPIキーを登録 → ③ タスクを追加して研究を始めましょう。会議メモ機能も同じAPIキーで使えます。",
       },
       {
-        q: "AI機能を使うには？",
-        a: "Anthropicのサイト（console.anthropic.com）でクレジットを購入し、APIキーを発行してください。右上の「🔑 APIキー」ボタンから登録すると、AI提案・AI議論・AIレポート生成が利用できます。",
+        q: "APIキーはどこで登録する？",
+        a: "タブ右側の「設定」タブから登録できます。AnthropicのAPIキー（sk-ant-...）を入力して保存するだけです。キーはブラウザに保存されるので、再ログイン後も入力不要です。",
+      },
+      {
+        q: "課金は必要ですか？",
+        a: "AI機能（AI提案・AI議論・会議メモ解析）にはAnthropicのクレジットが必要です。console.anthropic.com でクレジットを購入（最低$5〜）してAPIキーを取得してください。1回の会議解析は約$0.01〜$0.05程度です。文字起こし（Groq）は無料でサーバー側で設定済みのため、ユーザーの設定不要です。",
       },
     ],
   },
@@ -44,7 +48,7 @@ const sections: Section[] = [
     items: [
       {
         q: "タスクを追加するには？",
-        a: "右上の「＋ タスク追加」ボタンから追加できます。タイトル・優先度・期限・タグを設定できます。実験タスクの場合は実験日時も入力すると自動でスケジュールが作成されます。",
+        a: "タスクタブ内の「＋ タスク追加」ボタンから追加できます。タイトル・優先度・期限・タグを設定できます。実験タスクの場合は実験日時も入力すると自動でスケジュールが作成されます。",
       },
       {
         q: "タスクをカレンダーに追加するには？",
@@ -52,7 +56,7 @@ const sections: Section[] = [
       },
       {
         q: "進捗グラフや統計はどこで見る？",
-        a: "タスク一覧タブの上部に統計カード・進捗バー・優先度グラフが表示されています。AIレポート生成も同タブ内の「📄 AIレポート」ボタンから利用できます。",
+        a: "タスクタブの右側に統計カード・進捗バー・優先度グラフが表示されています。AIレポート生成も同タブ内の「📄 AIレポート」ボタンから利用できます。",
       },
     ],
   },
@@ -64,15 +68,47 @@ const sections: Section[] = [
     items: [
       {
         q: "AI提案とは？",
-        a: "研究テーマを入力するとAIが必要なタスクを自動提案します。提案されたタスクは「＋」ボタンでそのままタスク一覧に追加できます。音声入力にも対応しています。",
+        a: "研究テーマを入力するとAIが必要なタスクを自動提案します。提案されたタスクは「＋」ボタンでそのままタスク一覧に追加できます。音声入力にも対応しています。※Anthropic APIキーが必要です。",
       },
       {
         q: "AI議論とは？",
-        a: "研究アシスタントとチャット形式で議論できます。実験デザイン・データ解析・論文執筆など何でも相談できます。会話履歴はサーバーに自動保存されます。",
+        a: "研究アシスタントとチャット形式で議論できます。実験デザイン・データ解析・論文執筆など何でも相談できます。会話履歴はサーバーに自動保存されます。※Anthropic APIキーが必要です。",
       },
       {
         q: "AIレポートはどこで生成できる？",
-        a: "タスク一覧タブ内の「📄 AIレポート」セクションで週次・月次レポートを生成できます。指導教員への報告書としても利用できます。",
+        a: "タスクタブ内の「📄 AIレポート」セクションで週次・月次レポートを生成できます。指導教員への報告書としても利用できます。※Anthropic APIキーが必要です。",
+      },
+    ],
+  },
+  {
+    id: "meetings",
+    icon: <Mic className="w-4 h-4" />,
+    title: "会議メモ自動整理",
+    color: "rose",
+    items: [
+      {
+        q: "会議メモ機能とは？",
+        a: "会議や打ち合わせの音声を録音またはファイルでアップロードすると、AIが自動で文字起こし・要点まとめ・アクションアイテム・決定事項を整理してくれる機能です。",
+      },
+      {
+        q: "使い方は？",
+        a: "① 会議メモタブを開く → ② 会議タイトルを入力 → ③「ファイルをアップロード」で音声ファイルを選択（またはリアルタイム録音）→ ④ 自動で文字起こし・解析が始まります → ⑤ 完了後「完了」ボタンで履歴に保存されます。",
+      },
+      {
+        q: "対応しているファイル形式は？",
+        a: "MP3・MP4・M4A・WAV・WebM など主要な音声・動画形式に対応しています。長時間の録音も30秒チャンクに自動分割して処理するため、制限なく使えます。",
+      },
+      {
+        q: "課金は必要ですか？",
+        a: "文字起こし（Groq Whisper）は無料・設定不要です。ただし解析（要点・アクション抽出）にはAnthropicのAPIキーとクレジットが必要です。設定タブからAPIキーを登録し、console.anthropic.com でクレジットを購入（$5〜）してください。1回の解析は約$0.01〜$0.05程度です。",
+      },
+      {
+        q: "履歴はどこで確認できる？",
+        a: "会議メモタブの「履歴」ボタンから過去の会議メモを一覧で確認できます。検索・タグ絞り込み・編集・削除・Word/PDFダウンロード・印刷も可能です。",
+      },
+      {
+        q: "解析結果を編集できますか？",
+        a: "はい。履歴から過去のメモを開き「編集」ボタンで要点・アクションアイテム・決定事項・タグを自由に修正できます。",
       },
     ],
   },
@@ -104,11 +140,11 @@ const sections: Section[] = [
     items: [
       {
         q: "論文を検索・保存するには？",
-        a: "「論文検索」タブでキーワードを入力するとPubMedから検索できます。論文詳細画面の「保存」ボタンでマイライブラリに追加されます。",
+        a: "「論文」タブでキーワードを入力するとPubMedから検索できます。論文詳細画面の「保存」ボタンでマイライブラリに追加されます。",
       },
       {
         q: "コレクションで仕分けするには？",
-        a: "マイライブラリタブのコレクション欄の「フォルダ＋」アイコンで新しいコレクションを作成できます。各論文カードのドロップダウンでコレクションを選択して仕分けできます。コレクション名はホバーで表示されるペンアイコンから変更可能です。",
+        a: "マイライブラリタブのコレクション欄の「フォルダ＋」アイコンで新しいコレクションを作成できます。各論文カードのドロップダウンでコレクションを選択して仕分けできます。",
       },
       {
         q: "共有ノートの参考文献を保存するには？",
@@ -124,7 +160,7 @@ const sections: Section[] = [
     items: [
       {
         q: "実験スケジュールはどう登録する？",
-        a: "実験スケジュールタブから直接追加するか、タスク追加時に「実験タスク」にチェックを入れて実験日時を入力すると自動登録されます。",
+        a: "実験タブから直接追加するか、タスク追加時に「実験タスク」にチェックを入れて実験日時を入力すると自動登録されます。",
       },
       {
         q: "P注射・H注射とは？",
@@ -132,7 +168,7 @@ const sections: Section[] = [
       },
       {
         q: "もらった予定とは？",
-        a: "他のメンバーからメッセージで共有された実験スケジュールが表示されます。「カレンダーに追加」ボタンで自分のGoogleカレンダーに追加できます。実験日を過ぎたものは自動的に非表示になります。",
+        a: "他のメンバーからメッセージで共有された実験スケジュールが表示されます。「カレンダーに追加」ボタンで自分のGoogleカレンダーに追加できます。",
       },
     ],
   },
@@ -172,17 +208,35 @@ const sections: Section[] = [
       },
     ],
   },
+  {
+    id: "settings",
+    icon: <Settings className="w-4 h-4" />,
+    title: "設定",
+    color: "gray",
+    items: [
+      {
+        q: "設定タブでできることは？",
+        a: "Anthropic APIキーの登録・変更・削除ができます。登録したキーはブラウザにのみ保存されます（サーバーには送信されません）。残高確認ボタンからAnthropicの課金ページに直接アクセスできます。",
+      },
+      {
+        q: "APIキーはどこで取得できる？",
+        a: "console.anthropic.com にアクセス → 「API Keys」→「Create Key」でキーを発行できます。使用には事前にクレジットの購入が必要です（$5〜）。設定タブ内のリンクから直接アクセスできます。",
+      },
+    ],
+  },
 ];
 
 const COLOR_MAP: Record<string, { header: string; badge: string; bullet: string }> = {
-  blue:   { header: "bg-blue-50 text-blue-700 border-blue-100",   badge: "bg-blue-100 text-blue-700",   bullet: "text-blue-400" },
+  blue:   { header: "bg-blue-50 text-blue-700 border-blue-100",     badge: "bg-blue-100 text-blue-700",     bullet: "text-blue-400" },
   indigo: { header: "bg-indigo-50 text-indigo-700 border-indigo-100", badge: "bg-indigo-100 text-indigo-700", bullet: "text-indigo-400" },
   purple: { header: "bg-purple-50 text-purple-700 border-purple-100", badge: "bg-purple-100 text-purple-700", bullet: "text-purple-400" },
-  green:  { header: "bg-green-50 text-green-700 border-green-100",  badge: "bg-green-100 text-green-700",  bullet: "text-green-400" },
+  rose:   { header: "bg-rose-50 text-rose-700 border-rose-100",     badge: "bg-rose-100 text-rose-700",     bullet: "text-rose-400" },
+  green:  { header: "bg-green-50 text-green-700 border-green-100",   badge: "bg-green-100 text-green-700",   bullet: "text-green-400" },
   yellow: { header: "bg-yellow-50 text-yellow-700 border-yellow-100", badge: "bg-yellow-100 text-yellow-700", bullet: "text-yellow-500" },
-  teal:   { header: "bg-teal-50 text-teal-700 border-teal-100",    badge: "bg-teal-100 text-teal-700",    bullet: "text-teal-400" },
-  pink:   { header: "bg-pink-50 text-pink-700 border-pink-100",    badge: "bg-pink-100 text-pink-700",    bullet: "text-pink-400" },
+  teal:   { header: "bg-teal-50 text-teal-700 border-teal-100",     badge: "bg-teal-100 text-teal-700",     bullet: "text-teal-400" },
+  pink:   { header: "bg-pink-50 text-pink-700 border-pink-100",     badge: "bg-pink-100 text-pink-700",     bullet: "text-pink-400" },
   orange: { header: "bg-orange-50 text-orange-700 border-orange-100", badge: "bg-orange-100 text-orange-700", bullet: "text-orange-400" },
+  gray:   { header: "bg-gray-50 text-gray-700 border-gray-100",     badge: "bg-gray-100 text-gray-700",     bullet: "text-gray-400" },
 };
 
 export default function HelpPanel() {
@@ -196,6 +250,16 @@ export default function HelpPanel() {
           <h2 className="text-lg font-semibold text-gray-900">使い方ガイド</h2>
         </div>
         <p className="text-sm text-gray-500">カテゴリをクリックして詳細を確認できます。</p>
+      </div>
+
+      {/* Quick start banner */}
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-2xl border border-purple-100 p-4">
+        <p className="text-xs font-semibold text-purple-700 mb-2">⚡ クイックスタート</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-700">
+          <div className="flex items-start gap-1.5"><span className="font-bold text-purple-600 flex-shrink-0">①</span>設定タブ → Anthropic APIキーを登録</div>
+          <div className="flex items-start gap-1.5"><span className="font-bold text-purple-600 flex-shrink-0">②</span>console.anthropic.com でクレジット購入（$5〜）</div>
+          <div className="flex items-start gap-1.5"><span className="font-bold text-purple-600 flex-shrink-0">③</span>タスク追加・会議メモ・AI議論を使い始める</div>
+        </div>
       </div>
 
       {sections.map((section) => {
@@ -235,12 +299,14 @@ export default function HelpPanel() {
       })}
 
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-5 mt-4">
+        <p className="text-xs font-semibold text-gray-500 mb-3">よく使う操作</p>
         <div className="flex flex-wrap gap-3 text-sm">
-          <div className="flex items-center gap-1.5 text-gray-600"><Key className="w-4 h-4 text-purple-500" /><span>AIキー登録：右上「🔑 APIキー」</span></div>
-          <div className="flex items-center gap-1.5 text-gray-600"><Wallet className="w-4 h-4 text-purple-500" /><span>残高確認：右上「残高確認」</span></div>
+          <div className="flex items-center gap-1.5 text-gray-600"><Key className="w-4 h-4 text-purple-500" /><span>APIキー登録：設定タブ</span></div>
+          <div className="flex items-center gap-1.5 text-gray-600"><Wallet className="w-4 h-4 text-purple-500" /><span>残高確認：設定タブ内ボタン</span></div>
+          <div className="flex items-center gap-1.5 text-gray-600"><Mic className="w-4 h-4 text-rose-500" /><span>会議メモ：会議メモタブ</span></div>
           <div className="flex items-center gap-1.5 text-gray-600"><Search className="w-4 h-4 text-gray-500" /><span>全文検索：右上「検索」</span></div>
-          <div className="flex items-center gap-1.5 text-gray-600"><Plus className="w-4 h-4 text-blue-500" /><span>タスク追加：右上「＋ タスク追加」</span></div>
-          <div className="flex items-center gap-1.5 text-gray-600"><Share2 className="w-4 h-4 text-indigo-500" /><span>ノート共有：メッセージタブから送信</span></div>
+          <div className="flex items-center gap-1.5 text-gray-600"><Plus className="w-4 h-4 text-blue-500" /><span>タスク追加：タスクタブ内</span></div>
+          <div className="flex items-center gap-1.5 text-gray-600"><Share2 className="w-4 h-4 text-indigo-500" /><span>ノート共有：メッセージタブ</span></div>
           <div className="flex items-center gap-1.5 text-gray-600"><FolderOpen className="w-4 h-4 text-yellow-500" /><span>論文仕分け：マイライブラリ→コレクション</span></div>
         </div>
       </div>
