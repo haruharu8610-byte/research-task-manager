@@ -25,6 +25,7 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
   const [tags, setTags] = useState("");
   const [transcript, setTranscript] = useState("");
   const [transcribing, setTranscribing] = useState(false);
+  const [transcribeStatus, setTranscribeStatus] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [recording, setRecording] = useState(false);
   const [result, setResult] = useState<Meeting | null>(null);
@@ -47,79 +48,77 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
     ...(apiKey ? { "x-api-key": apiKey } : {}),
   });
 
-  // Decode audio, downsample to 8kHz mono, split into WAV chunks ≤ 3MB each
-  const decodeAndChunk = async (blob: Blob): Promise<Blob[]> => {
-    const arrayBuffer = await blob.arrayBuffer();
-    const audioCtx = new AudioContext();
-    let decoded: AudioBuffer;
-    try {
-      decoded = await audioCtx.decodeAudioData(arrayBuffer);
-    } finally {
-      await audioCtx.close();
+  const writeWav = (samples: Float32Array, sampleRate: number): Blob => {
+    const int16 = new Int16Array(samples.length);
+    for (let i = 0; i < samples.length; i++) {
+      const s = Math.max(-1, Math.min(1, samples[i]));
+      int16[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
     }
-
-    const TARGET_RATE = 8000;
-    const srcRate = decoded.sampleRate;
-    const ratio = srcRate / TARGET_RATE;
-    const srcLen = decoded.length;
-    const outLen = Math.floor(srcLen / ratio);
-    const numChannels = decoded.numberOfChannels;
-
-    // Mix down to mono at 8kHz
-    const mono = new Int16Array(outLen);
-    for (let i = 0; i < outLen; i++) {
-      let sum = 0;
-      for (let c = 0; c < numChannels; c++) sum += decoded.getChannelData(c)[Math.floor(i * ratio)];
-      const s = Math.max(-1, Math.min(1, sum / numChannels));
-      mono[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
-    }
-
-    // Write WAV header
-    const writeWav = (samples: Int16Array): Blob => {
-      const byteLen = samples.length * 2;
-      const buf = new ArrayBuffer(44 + byteLen);
-      const view = new DataView(buf);
-      const w = (off: number, v: number, s: number) => s === 4 ? view.setUint32(off, v, true) : view.setUint16(off, v, true);
-      const enc = new TextEncoder();
-      const setStr = (off: number, s: string) => enc.encode(s).forEach((b, i) => view.setUint8(off + i, b));
-      setStr(0, "RIFF"); w(4, 36 + byteLen, 4); setStr(8, "WAVE");
-      setStr(12, "fmt "); w(16, 16, 4); w(20, 1, 2); w(22, 1, 2);
-      w(24, TARGET_RATE, 4); w(28, TARGET_RATE * 2, 4); w(32, 2, 2); w(34, 16, 2);
-      setStr(36, "data"); w(40, byteLen, 4);
-      new Int16Array(buf, 44).set(samples);
-      return new Blob([buf], { type: "audio/wav" });
-    };
-
-    // Split into chunks of ~3MB (≈ 3MB / 2bytes = 1.5M samples at 8kHz = ~187 seconds)
-    const CHUNK_SAMPLES = 30 * TARGET_RATE; // 30 seconds per chunk
-    const chunks: Blob[] = [];
-    for (let offset = 0; offset < outLen; offset += CHUNK_SAMPLES) {
-      chunks.push(writeWav(mono.subarray(offset, offset + CHUNK_SAMPLES)));
-    }
-    return chunks;
+    const byteLen = int16.length * 2;
+    const buf = new ArrayBuffer(44 + byteLen);
+    const view = new DataView(buf);
+    const w = (off: number, v: number, s: number) => s === 4 ? view.setUint32(off, v, true) : view.setUint16(off, v, true);
+    const setStr = (off: number, str: string) => new TextEncoder().encode(str).forEach((b, i) => view.setUint8(off + i, b));
+    setStr(0, "RIFF"); w(4, 36 + byteLen, 4); setStr(8, "WAVE");
+    setStr(12, "fmt "); w(16, 16, 4); w(20, 1, 2); w(22, 1, 2);
+    w(24, sampleRate, 4); w(28, sampleRate * 2, 4); w(32, 2, 2); w(34, 16, 2);
+    setStr(36, "data"); w(40, byteLen, 4);
+    new Int16Array(buf, 44).set(int16);
+    return new Blob([buf], { type: "audio/wav" });
   };
 
   const sendAudio = async (blob: Blob, filename: string) => {
     setTranscribing(true);
+    setTranscribeStatus("音声をデコード中...");
     try {
-      // Split audio into small WAV chunks (8kHz mono, ≤3MB each) to stay under Vercel limit
-      const chunks = await decodeAndChunk(blob);
+      const TARGET_RATE = 8000;
+      const CHUNK_SEC = 30;
+
+      // Decode with regular AudioContext
+      const arrayBuffer = await blob.arrayBuffer();
+      const audioCtx = new AudioContext();
+      let decoded: AudioBuffer;
+      try {
+        decoded = await audioCtx.decodeAudioData(arrayBuffer);
+      } finally {
+        await audioCtx.close();
+      }
+
+      setTranscribeStatus("音声を変換中...");
+      // Use OfflineAudioContext to resample to 8kHz mono (hardware accelerated)
+      const duration = decoded.duration;
+      const outSamples = Math.ceil(duration * TARGET_RATE);
+      const offCtx = new OfflineAudioContext(1, outSamples, TARGET_RATE);
+      const src = offCtx.createBufferSource();
+      src.buffer = decoded;
+      src.connect(offCtx.destination);
+      src.start(0);
+      const resampled = await offCtx.startRendering();
+      const monoData = resampled.getChannelData(0);
+
+      // Split into 30-second chunks
+      const chunkSamples = CHUNK_SEC * TARGET_RATE;
+      const totalChunks = Math.ceil(monoData.length / chunkSamples);
       const authHdr: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
 
       const parts: string[] = [];
-      for (let i = 0; i < chunks.length; i++) {
+      for (let i = 0; i < totalChunks; i++) {
+        setTranscribeStatus(`文字起こし中 (${i + 1}/${totalChunks})...`);
+        const chunk = monoData.subarray(i * chunkSamples, (i + 1) * chunkSamples);
+        const wavBlob = writeWav(chunk, TARGET_RATE);
         const form = new FormData();
-        form.append("file", chunks[i], `chunk${i}.wav`);
+        form.append("file", wavBlob, `chunk${i}.wav`);
         const res = await fetch("/api/meetings/transcribe", {
           method: "POST",
           headers: authHdr,
           body: form,
+          signal: AbortSignal.timeout(55000),
         });
         const text = await res.text();
         let data: { transcript?: string; error?: string };
         try { data = JSON.parse(text); } catch { throw new Error(`サーバーエラー(${res.status}): ${text.slice(0, 200)}`); }
         if (!res.ok) throw new Error(`APIエラー(${res.status}): ${data.error}`);
-        parts.push(data.transcript!);
+        parts.push(data.transcript ?? "");
       }
 
       const fullTranscript = parts.join(" ");
@@ -129,6 +128,7 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
       alert("文字起こし失敗: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setTranscribing(false);
+      setTranscribeStatus("");
     }
   };
 
@@ -283,7 +283,7 @@ export default function MeetingsPanel({ authToken, apiKey }: Props) {
               <div className="flex gap-2">
                 <div onClick={() => !transcribing && fileRef.current?.click()}
                   className="flex-1 border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:bg-gray-50 transition-colors">
-                  {transcribing ? <p className="text-sm text-blue-600 animate-pulse">文字起こし中...</p> : (
+                  {transcribing ? <p className="text-sm text-blue-600 animate-pulse">{transcribeStatus || "文字起こし中..."}</p> : (
                     <><Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" /><p className="text-xs text-gray-500">ファイルをアップロード</p></>
                   )}
                 </div>
