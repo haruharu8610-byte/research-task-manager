@@ -74,7 +74,7 @@ export default function DashboardPanel({ tasks }: Props) {
         ].map(({ label, value, color }) => (
           <div key={label} className={`rounded-xl p-4 ${color}`}>
             <p className="text-2xl font-bold">{value}</p>
-            <p className="text-sm opacity-70 mt-0.5">{label}</p>
+            <p className="text-sm opacity-70 mt-0.5 whitespace-nowrap">{label}</p>
           </div>
         ))}
       </div>
@@ -140,7 +140,7 @@ export default function DashboardPanel({ tasks }: Props) {
         </div>
 
         <div className="bg-white rounded-2xl border p-5">
-          <h3 className="font-semibold text-gray-900 mb-3">今週期限のタスク</h3>
+          <h3 className="font-semibold text-gray-900 mb-3">今週期限</h3>
           {dueSoon.length === 0 ? (
             <p className="text-sm text-gray-400">今週期限のタスクはありません</p>
           ) : (
