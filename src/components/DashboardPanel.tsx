@@ -118,7 +118,7 @@ export default function DashboardPanel({ tasks }: Props) {
       {/* 優先度別・期限が近いタスク */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white rounded-2xl border p-5">
-          <h3 className="font-semibold text-gray-900 mb-3">優先度別（未完了）</h3>
+          <h3 className="font-semibold text-gray-900 mb-3 whitespace-nowrap">優先度別（未完了）</h3>
           <div className="space-y-2">
             {[
               { label: "高", count: priorityCount.high, color: "bg-red-100 text-red-700" },
@@ -160,10 +160,10 @@ export default function DashboardPanel({ tasks }: Props) {
 
       {/* AIレポート生成 */}
       <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-2xl border border-indigo-100 p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-nowrap items-center justify-between mb-4 gap-2">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-semibold text-gray-900">AI 進捗レポート生成</h3>
+            <h3 className="font-semibold text-gray-900 whitespace-nowrap">AI進捗レポート</h3>
           </div>
           <div className="flex items-center gap-2">
             <select
