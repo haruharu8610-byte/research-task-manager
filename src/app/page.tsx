@@ -337,7 +337,7 @@ export default function Home() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         <StatsBar tasks={tasks} />
 
-        <div className="flex gap-1 mt-6 bg-white border rounded-xl p-1 overflow-x-auto w-full">
+        <div className="flex flex-nowrap gap-1 mt-6 bg-white border rounded-xl p-1 overflow-x-auto w-full">
           {tabs.map((tab) => (
             <button
               key={tab.id}
