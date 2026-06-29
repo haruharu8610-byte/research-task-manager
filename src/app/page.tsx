@@ -233,7 +233,11 @@ export default function Home() {
         });
         if (r.status === 401) { window.location.href = `/api/calendar/connect?token=${session?.access_token}`; return; }
         if (r.ok) { const d = await r.json(); eventIds[ev.key] = d.eventId; }
-        else allOk = false;
+        else {
+          const errData = await r.json().catch(() => ({}));
+          showToast(`カレンダー追加失敗 (${r.status}): ${errData.error ?? "不明なエラー"}`);
+          allOk = false;
+        }
       }
 
       if (allOk) {
@@ -244,8 +248,6 @@ export default function Home() {
         });
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, calendar_event_id: eventIds.exp } : t));
         showToast("P注射・H注射・実験の3件をカレンダーに追加しました");
-      } else {
-        showToast("一部の追加に失敗しました");
       }
     } else {
       // 通常タスク：1件のみ登録
@@ -258,6 +260,8 @@ export default function Home() {
       if (data.eventId) {
         setTasks(prev => prev.map(t => t.id === task.id ? { ...t, calendar_event_id: data.eventId } : t));
         showToast("Googleカレンダーに追加しました");
+      } else {
+        showToast(`追加失敗: ${data.error ?? "不明なエラー"}`);
       }
     }
   };
