@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Trash2, Save, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer, Share2, Trash, LibraryBig, Check } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Plus, Trash2, Loader2, FileText, FlaskConical, BookOpen, Link, X, Printer, Share2, Trash, LibraryBig, Check } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale/ja";
 
@@ -86,6 +86,7 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [refUrl, setRefUrl] = useState("");
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [refLoading, setRefLoading] = useState(false);
 
   const headers = (): HeadersInit => ({
@@ -177,27 +178,26 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
     setSelectedNote(newNote);
   };
 
-  const handleSave = async () => {
-    if (!selectedNote) return;
+  const handleSave = useCallback(async (note: Note) => {
     setSaving(true);
-    const res = await fetch(`/api/notes/${selectedNote.id}`, {
+    const res = await fetch(`/api/notes/${note.id}`, {
       method: "PATCH",
       headers: headers(),
       body: JSON.stringify({
-        title: selectedNote.title,
-        content: selectedNote.content,
-        tags: selectedNote.tags,
-        note_type: selectedNote.note_type,
-        refs: selectedNote.refs ?? [],
+        title: note.title,
+        content: note.content,
+        tags: note.tags,
+        note_type: note.note_type,
+        refs: note.refs ?? [],
       }),
     });
     const updated = await res.json();
     setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
-    setSelectedNote(updated);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authToken]);
 
   const handleDelete = async (id: string) => {
     if (!confirm("このノートを削除しますか？")) return;
@@ -208,7 +208,10 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
 
   const updateSelected = (updates: Partial<Note>) => {
     if (!selectedNote) return;
-    setSelectedNote({ ...selectedNote, ...updates });
+    const updated = { ...selectedNote, ...updates };
+    setSelectedNote(updated);
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => handleSave(updated), 1000);
   };
 
   // DOI/URLから文献情報を取得
@@ -237,7 +240,7 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
     }
 
     const newRefs = [...(selectedNote.refs ?? []), ref];
-    updateSelected({ refs: newRefs });
+    updateSelected({ refs: newRefs }); // updateSelected内で自動保存
     setRefUrl("");
     setRefLoading(false);
   };
@@ -509,6 +512,11 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
                 placeholder="ノートのタイトル"
               />
               <div className="flex items-center gap-2">
+                {saving ? (
+                  <span className="flex items-center gap-1 text-xs text-gray-400"><Loader2 className="w-3 h-3 animate-spin" />保存中...</span>
+                ) : saved ? (
+                  <span className="flex items-center gap-1 text-xs text-green-500"><Check className="w-3 h-3" />保存済み</span>
+                ) : null}
                 <button
                   onClick={handlePrint}
                   className="p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
@@ -521,14 +529,6 @@ export default function NotesPanel({ initialNoteId, authToken, userId }: NotesPa
                   className="p-1.5 text-gray-400 hover:text-red-500 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="bg-blue-600 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-1.5"
-                >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                  {saved ? "保存済み！" : "保存"}
                 </button>
               </div>
             </div>
