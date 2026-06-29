@@ -41,8 +41,15 @@ export async function GET(req: NextRequest) {
   }
   const primaryTheme = Object.entries(themeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
+  // 自習時間の累計
+  const { data: studyData } = await supabase
+    .from("study_sessions")
+    .select("duration_minutes")
+    .eq("user_id", userId);
+  const studyTotalMinutes = (studyData ?? []).reduce((sum, s) => sum + (s.duration_minutes ?? 0), 0);
+
   return NextResponse.json(
-    { totalTasks: tasks.length, completedTasks: completedTasks.length, totalPoints, primaryTheme },
+    { totalTasks: tasks.length, completedTasks: completedTasks.length, totalPoints, primaryTheme, studyTotalMinutes },
     { headers: corsHeaders }
   );
 }

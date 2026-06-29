@@ -21,12 +21,13 @@ import MessagesPanel from "@/components/MessagesPanel";
 import HelpPanel from "@/components/HelpPanel";
 import MeetingsPanel from "@/components/MeetingsPanel";
 import SettingsPanel from "@/components/SettingsPanel";
+import StudyTimerPanel from "@/components/StudyTimerPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
 import Image from "next/image";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle, Video, Settings } from "lucide-react";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle, Video, Settings, Timer } from "lucide-react";
 
-type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "meetings" | "settings" | "help";
+type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "meetings" | "settings" | "help" | "study";
 
 export default function Home() {
   const { user, session, loading, signOut } = useAuth();
@@ -289,6 +290,7 @@ export default function Home() {
     { id: "calendar", label: "カレンダー", icon: <CalendarDays className="w-4 h-4" /> },
     { id: "messages", label: "メッセージ", icon: <Mail className="w-4 h-4" /> },
     { id: "meetings", label: "会議メモ", icon: <Video className="w-4 h-4" /> },
+    { id: "study", label: "自習", icon: <Timer className="w-4 h-4" /> },
     { id: "help", label: "ヘルプ", icon: <HelpCircle className="w-4 h-4" /> },
     { id: "settings", label: "設定", icon: <Settings className="w-4 h-4" /> },
   ];
@@ -463,6 +465,10 @@ export default function Home() {
 
           {activeTab === "meetings" && (
             <MeetingsPanel authToken={session?.access_token} apiKey={typeof window !== "undefined" ? localStorage.getItem("anthropic_api_key") ?? undefined : undefined} />
+          )}
+
+          {activeTab === "study" && (
+            <StudyTimerPanel authToken={session?.access_token} />
           )}
 
           {activeTab === "help" && <HelpPanel />}
