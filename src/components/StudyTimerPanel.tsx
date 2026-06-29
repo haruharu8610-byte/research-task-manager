@@ -14,6 +14,8 @@ type Props = {
 };
 
 const GOLD_PER_MINUTE = 1; // 1G/分
+const TIMER_KEY = "study_timer_start";
+const TIMER_SUBJECT_KEY = "study_timer_subject";
 
 function fmt(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -33,7 +35,6 @@ export default function StudyTimerPanel({ authToken }: Props) {
   const [toast, setToast]           = useState<string | null>(null);
   const [saving, setSaving]         = useState(false);
   const intervalRef                 = useRef<ReturnType<typeof setInterval> | null>(null);
-  const startTimeRef                = useRef<number>(0);
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
@@ -55,19 +56,43 @@ export default function StudyTimerPanel({ authToken }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authToken]);
 
-  useEffect(() => { fetchStats(); }, [fetchStats]);
+  // マウント時: localStorage に進行中タイマーがあれば復元
+  useEffect(() => {
+    const saved = localStorage.getItem(TIMER_KEY);
+    if (saved) {
+      const startMs = parseInt(saved, 10);
+      setElapsed(Math.floor((Date.now() - startMs) / 1000));
+      setSubject(localStorage.getItem(TIMER_SUBJECT_KEY) ?? "");
+      setRunning(true);
+      intervalRef.current = setInterval(() => {
+        setElapsed(Math.floor((Date.now() - startMs) / 1000));
+      }, 1000);
+    }
+    fetchStats();
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // subject が変わったらlocalStorageも同期
+  useEffect(() => {
+    if (running) localStorage.setItem(TIMER_SUBJECT_KEY, subject);
+  }, [subject, running]);
 
   function startTimer() {
+    const startMs = Date.now();
+    localStorage.setItem(TIMER_KEY, String(startMs));
+    localStorage.setItem(TIMER_SUBJECT_KEY, subject);
     setElapsed(0);
-    startTimeRef.current = Date.now();
     setRunning(true);
     intervalRef.current = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setElapsed(Math.floor((Date.now() - startMs) / 1000));
     }, 1000);
   }
 
   async function stopTimer() {
     if (intervalRef.current) clearInterval(intervalRef.current);
+    localStorage.removeItem(TIMER_KEY);
+    localStorage.removeItem(TIMER_SUBJECT_KEY);
     setRunning(false);
     const minutes = Math.floor(elapsed / 60);
     if (minutes < 1) {
