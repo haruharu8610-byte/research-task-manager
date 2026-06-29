@@ -16,6 +16,7 @@ type Props = {
 const GOLD_PER_MINUTE = 1; // 1G/分
 const TIMER_KEY = "study_timer_start";
 const TIMER_SUBJECT_KEY = "study_timer_subject";
+const MAX_SECONDS = 6 * 60 * 60; // 6時間で自動ストップ
 
 function fmt(seconds: number) {
   const h = Math.floor(seconds / 3600);
@@ -61,12 +62,32 @@ export default function StudyTimerPanel({ authToken }: Props) {
     const saved = localStorage.getItem(TIMER_KEY);
     if (saved) {
       const startMs = parseInt(saved, 10);
-      setElapsed(Math.floor((Date.now() - startMs) / 1000));
-      setSubject(localStorage.getItem(TIMER_SUBJECT_KEY) ?? "");
-      setRunning(true);
-      intervalRef.current = setInterval(() => {
-        setElapsed(Math.floor((Date.now() - startMs) / 1000));
-      }, 1000);
+      const elapsedNow = Math.floor((Date.now() - startMs) / 1000);
+
+      // 6時間超で放置されていた場合は自動ストップ（保存はしない）
+      if (elapsedNow >= MAX_SECONDS) {
+        localStorage.removeItem(TIMER_KEY);
+        localStorage.removeItem(TIMER_SUBJECT_KEY);
+        showToast("6時間以上の放置が検出されたため、自動でストップしました");
+      } else {
+        setElapsed(elapsedNow);
+        setSubject(localStorage.getItem(TIMER_SUBJECT_KEY) ?? "");
+        setRunning(true);
+        intervalRef.current = setInterval(() => {
+          const e = Math.floor((Date.now() - startMs) / 1000);
+          if (e >= MAX_SECONDS) {
+            // 計測中に6時間到達
+            clearInterval(intervalRef.current!);
+            localStorage.removeItem(TIMER_KEY);
+            localStorage.removeItem(TIMER_SUBJECT_KEY);
+            setRunning(false);
+            setElapsed(0);
+            showToast("6時間以上の放置が検出されたため、自動でストップしました");
+          } else {
+            setElapsed(e);
+          }
+        }, 1000);
+      }
     }
     fetchStats();
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
@@ -85,7 +106,17 @@ export default function StudyTimerPanel({ authToken }: Props) {
     setElapsed(0);
     setRunning(true);
     intervalRef.current = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - startMs) / 1000));
+      const e = Math.floor((Date.now() - startMs) / 1000);
+      if (e >= MAX_SECONDS) {
+        clearInterval(intervalRef.current!);
+        localStorage.removeItem(TIMER_KEY);
+        localStorage.removeItem(TIMER_SUBJECT_KEY);
+        setRunning(false);
+        setElapsed(0);
+        showToast("6時間以上の放置が検出されたため、自動でストップしました");
+      } else {
+        setElapsed(e);
+      }
     }, 1000);
   }
 
