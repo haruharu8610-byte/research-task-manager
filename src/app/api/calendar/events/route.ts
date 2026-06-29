@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { refreshAccessToken } from "@/lib/google-calendar";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import { getUserFromRequest } from "@/lib/auth";
 
+function getServiceClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
+
 async function getAccessToken(userId: string | null): Promise<string | null> {
-  let query = supabase.from("app_settings").select("key, value");
+  const db = getServiceClient();
+  let query = db.from("app_settings").select("key, value");
   if (userId) query = query.eq("user_id", userId);
   else query = query.is("user_id", null);
   const { data } = await query.in("key", ["google_access_token", "google_refresh_token", "google_token_expiry"]);
@@ -19,7 +27,7 @@ async function getAccessToken(userId: string | null): Promise<string | null> {
     const refreshed = await refreshAccessToken(refreshToken);
     if (refreshed.access_token) {
       const base = { updated_at: new Date().toISOString(), user_id: userId };
-      await supabase.from("app_settings").upsert([
+      await db.from("app_settings").upsert([
         { ...base, key: "google_access_token", value: refreshed.access_token },
         { ...base, key: "google_token_expiry", value: String(Date.now() + refreshed.expires_in * 1000) },
       ], { onConflict: "user_id,key" });
