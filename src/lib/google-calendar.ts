@@ -61,8 +61,12 @@ export async function createCalendarEvent(
     startEntry = { dateTime: startDate, timeZone: "Asia/Tokyo" };
     endEntry = { dateTime: endDate ?? startDate, timeZone: "Asia/Tokyo" };
   } else {
+    // 終日イベントはend.dateを翌日にしないとGoogle Calendar APIに弾かれる
+    const nextDay = new Date(startDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = nextDay.toISOString().slice(0, 10);
     startEntry = { date: startDate };
-    endEntry = { date: endDate ?? startDate };
+    endEntry = { date: endDate ?? nextDayStr };
   }
 
   const event = {
