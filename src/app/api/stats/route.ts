@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("tasks")
-    .select("status, priority")
+    .select("status, priority, research_theme")
     .eq("user_id", userId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -27,15 +27,22 @@ export async function GET(req: NextRequest) {
   const tasks = data ?? [];
   const completedTasks = tasks.filter((t) => t.status === "done");
 
-  // 優先度でポイントを加重
   const pointsMap: Record<string, number> = { low: 10, medium: 20, high: 30 };
   const totalPoints = completedTasks.reduce(
     (sum, t) => sum + (pointsMap[t.priority] ?? 10),
     0
   );
 
+  // タスク数が最多の研究テーマを職業として返す
+  const themeCounts: Record<string, number> = {};
+  for (const t of tasks) {
+    const theme = t.research_theme?.trim();
+    if (theme) themeCounts[theme] = (themeCounts[theme] ?? 0) + 1;
+  }
+  const primaryTheme = Object.entries(themeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
   return NextResponse.json(
-    { totalTasks: tasks.length, completedTasks: completedTasks.length, totalPoints },
+    { totalTasks: tasks.length, completedTasks: completedTasks.length, totalPoints, primaryTheme },
     { headers: corsHeaders }
   );
 }
