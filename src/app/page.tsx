@@ -25,7 +25,7 @@ import StudyTimerPanel from "@/components/StudyTimerPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
 import Image from "next/image";
-import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, Wallet, Key, LogOut, User, Library, TestTube, Mail, HelpCircle, Video, Settings, Timer } from "lucide-react";
+import { Plus, FlaskConical, CalendarDays, MessageSquare, List, BookOpen, Search, LogOut, User, Library, TestTube, Mail, HelpCircle, Video, Settings, Timer, Sword } from "lucide-react";
 
 type Tab = "tasks" | "suggest" | "chat" | "notes" | "papers" | "experiment" | "calendar" | "messages" | "meetings" | "settings" | "help" | "study";
 
@@ -325,6 +325,15 @@ export default function Home() {
               <Search className="w-4 h-4" />
               検索
             </button>
+            <a
+              href="https://researh-rpg.vercel.app"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-sm text-purple-600 border border-purple-300 rounded-lg px-3 py-1.5 hover:bg-purple-50 transition-colors font-medium"
+            >
+              <Sword className="w-4 h-4" />
+              RPGへ
+            </a>
             <div className="flex items-center gap-2 border-l pl-3">
               <User className="w-4 h-4 text-gray-400" />
               <span className="text-xs text-gray-500 max-w-[120px] truncate">{user.email}</span>
