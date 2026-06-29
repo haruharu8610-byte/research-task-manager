@@ -2,9 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getUserFromRequest } from "@/lib/auth";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Authorization, Content-Type",
+};
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: corsHeaders });
+}
+
 export async function GET(req: NextRequest) {
   const userId = await getUserFromRequest(req);
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
 
   const { data, error } = await supabase
     .from("tasks")
@@ -23,9 +34,8 @@ export async function GET(req: NextRequest) {
     0
   );
 
-  return NextResponse.json({
-    totalTasks: tasks.length,
-    completedTasks: completedTasks.length,
-    totalPoints,
-  });
+  return NextResponse.json(
+    { totalTasks: tasks.length, completedTasks: completedTasks.length, totalPoints },
+    { headers: corsHeaders }
+  );
 }
