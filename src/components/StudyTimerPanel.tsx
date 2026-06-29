@@ -16,7 +16,7 @@ type Props = {
 const GOLD_PER_MINUTE = 1; // 1G/分
 const TIMER_KEY = "study_timer_start";
 const TIMER_SUBJECT_KEY = "study_timer_subject";
-const MAX_SECONDS = 6 * 60 * 60; // 6時間で自動ストップ
+const MAX_SECONDS = 12 * 60 * 60; // 12時間で自動ストップ
 
 function fmt(seconds: number) {
   const h = Math.floor(seconds / 3600);
