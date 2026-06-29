@@ -143,7 +143,8 @@ export default function StudyTimerPanel({ authToken }: Props) {
         showToast(`${minutes}分記録！ Research RPGで ${earned}G 獲得予定 🎉`);
         await fetchStats();
       } else {
-        showToast("保存に失敗しました");
+        const errData = await res.json().catch(() => ({}));
+        showToast(`保存に失敗しました: ${errData.error ?? res.status}`);
       }
     } finally {
       setSaving(false);

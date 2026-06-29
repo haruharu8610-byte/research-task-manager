@@ -40,3 +40,19 @@ $$ language plpgsql;
 create trigger tasks_updated_at
   before update on tasks
   for each row execute function update_updated_at();
+
+-- 自習セッション
+create table if not exists study_sessions (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  duration_minutes integer not null,
+  subject text,
+  created_at timestamptz default now()
+);
+
+alter table study_sessions enable row level security;
+
+create policy "Users can manage their own study sessions"
+  on study_sessions for all
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
