@@ -49,7 +49,11 @@ export async function POST(req: NextRequest) {
   const accessToken = await getAccessToken(userId);
   if (!accessToken) return NextResponse.json({ error: "Google Calendar未連携" }, { status: 401 });
 
-  const eventId = await createCalendarEvent(accessToken, title, description, dueDate, isDateTime, endDate);
+  const { eventId, error: calError } = await createCalendarEvent(accessToken, title, description, dueDate, isDateTime, endDate);
+  if (calError) {
+    console.error("Google Calendar API error:", calError);
+    return NextResponse.json({ error: calError }, { status: 500 });
+  }
   if (taskId) {
     await getServiceClient().from("tasks").update({ calendar_event_id: eventId }).eq("id", taskId);
   }

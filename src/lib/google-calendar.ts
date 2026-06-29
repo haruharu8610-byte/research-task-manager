@@ -55,7 +55,7 @@ export async function createCalendarEvent(
   startDate: string,
   isDateTime = false,
   endDate?: string
-): Promise<string> {
+): Promise<{ eventId?: string; error?: string }> {
   let startEntry, endEntry;
   if (isDateTime) {
     startEntry = { dateTime: startDate, timeZone: "Asia/Tokyo" };
@@ -90,7 +90,10 @@ export async function createCalendarEvent(
   });
 
   const data = await res.json();
-  return data.id;
+  if (!res.ok) {
+    return { error: JSON.stringify(data) };
+  }
+  return { eventId: data.id };
 }
 
 export async function deleteCalendarEvent(
