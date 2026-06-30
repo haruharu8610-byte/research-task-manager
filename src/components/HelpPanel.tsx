@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   HelpCircle, List, BarChart2, FlaskConical, MessageSquare, BookOpen,
   Library, TestTube, CalendarDays, Mail, ChevronDown, ChevronUp,
-  Key, Search, Plus, Share2, FolderOpen, Wallet, Mic, Settings
+  Key, Search, Plus, Share2, FolderOpen, Wallet, Mic, Settings, Timer, Sword
 } from "lucide-react";
 
 interface Section {
@@ -24,7 +24,7 @@ const sections: Section[] = [
     items: [
       {
         q: "このアプリでできることは？",
-        a: "研究に必要な機能をひとまとめにしたツールです。タスク管理・AI提案・AI議論・研究ノート・論文管理・実験スケジュール・カレンダー連携・メンバー間メッセージ・会議メモ自動整理など、研究活動をトータルでサポートします。",
+        a: "研究に必要な機能をひとまとめにしたツールです。タスク管理・AI提案・AI議論・研究ノート・論文管理・実験スケジュール・カレンダー連携・メンバー間メッセージ・会議メモ自動整理・自習タイマーなど、研究活動をトータルでサポートします。自習タイマーは別アプリ「Research RPG」とも連携しています。",
       },
       {
         q: "最初にやることは？",
@@ -193,6 +193,34 @@ const sections: Section[] = [
     ],
   },
   {
+    id: "study",
+    icon: <Timer className="w-4 h-4" />,
+    title: "自習タイマー / Research RPG連携",
+    color: "violet",
+    items: [
+      {
+        q: "自習タイマーとは？",
+        a: "「自習」タブでスタート/ストップするだけの簡単な勉強・作業時間計測機能です。科目や内容を入力しておくと記録に残ります。1分未満のセッションは記録されません。",
+      },
+      {
+        q: "Research RPGとは？",
+        a: "本アプリと連携する別アプリのRPGゲームです。自習タイマーで記録した時間が1分＝1ゴールド（G）としてResearch RPG側に反映され、ゲーム内で装備購入やダンジョン攻略に使えます。研究・学習のモチベーション維持を目的とした連携機能です。",
+      },
+      {
+        q: "ゴールドはどうやって貯まる？",
+        a: "自習タイマーをストップして記録するたびに「分数×1G」が貯まります。「今日」「累計」のゴールド数は自習タブの統計カードで確認できます。",
+      },
+      {
+        q: "放置していたらどうなる？",
+        a: "計測開始から12時間（または6時間表示の警告後）放置すると自動的にタイマーが停止し、その回はゴールドとして記録されません。離席する際はこまめにストップしてください。",
+      },
+      {
+        q: "過去の記録は確認できる？",
+        a: "自習タブ下部に過去7日間のグラフと直近セッション履歴が表示されます。科目別の振り返りに使えます。",
+      },
+    ],
+  },
+  {
     id: "calendar",
     icon: <CalendarDays className="w-4 h-4" />,
     title: "カレンダー連携",
@@ -237,6 +265,7 @@ const COLOR_MAP: Record<string, { header: string; badge: string; bullet: string 
   pink:   { header: "bg-pink-50 text-pink-700 border-pink-100",     badge: "bg-pink-100 text-pink-700",     bullet: "text-pink-400" },
   orange: { header: "bg-orange-50 text-orange-700 border-orange-100", badge: "bg-orange-100 text-orange-700", bullet: "text-orange-400" },
   gray:   { header: "bg-gray-50 text-gray-700 border-gray-100",     badge: "bg-gray-100 text-gray-700",     bullet: "text-gray-400" },
+  violet: { header: "bg-violet-50 text-violet-700 border-violet-100", badge: "bg-violet-100 text-violet-700", bullet: "text-violet-400" },
 };
 
 export default function HelpPanel() {
@@ -259,6 +288,7 @@ export default function HelpPanel() {
           <div className="flex items-start gap-1.5"><span className="font-bold text-purple-600 flex-shrink-0">①</span>設定タブ → Anthropic APIキーを登録</div>
           <div className="flex items-start gap-1.5"><span className="font-bold text-purple-600 flex-shrink-0">②</span>console.anthropic.com でクレジット購入（$5〜）</div>
           <div className="flex items-start gap-1.5"><span className="font-bold text-purple-600 flex-shrink-0">③</span>タスク追加・会議メモ・AI議論を使い始める</div>
+          <div className="flex items-start gap-1.5"><span className="font-bold text-purple-600 flex-shrink-0">④</span>自習タブでタイマーを回してResearch RPGのゴールドを貯める</div>
         </div>
       </div>
 
@@ -308,6 +338,8 @@ export default function HelpPanel() {
           <div className="flex items-center gap-1.5 text-gray-600"><Plus className="w-4 h-4 text-blue-500" /><span>タスク追加：タスクタブ内</span></div>
           <div className="flex items-center gap-1.5 text-gray-600"><Share2 className="w-4 h-4 text-indigo-500" /><span>ノート共有：メッセージタブ</span></div>
           <div className="flex items-center gap-1.5 text-gray-600"><FolderOpen className="w-4 h-4 text-yellow-500" /><span>論文仕分け：マイライブラリ→コレクション</span></div>
+          <div className="flex items-center gap-1.5 text-gray-600"><Timer className="w-4 h-4 text-violet-500" /><span>自習タイマー：自習タブ</span></div>
+          <div className="flex items-center gap-1.5 text-gray-600"><Sword className="w-4 h-4 text-violet-500" /><span>ゴールド獲得：自習タイマー停止時に自動加算</span></div>
         </div>
       </div>
     </div>
