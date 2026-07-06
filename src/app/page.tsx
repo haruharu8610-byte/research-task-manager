@@ -22,6 +22,7 @@ import HelpPanel from "@/components/HelpPanel";
 import MeetingsPanel from "@/components/MeetingsPanel";
 import SettingsPanel from "@/components/SettingsPanel";
 import StudyTimerPanel from "@/components/StudyTimerPanel";
+import TodoPanel from "@/components/TodoPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { getApiHeaders } from "@/lib/api";
 import Image from "next/image";
@@ -44,6 +45,7 @@ export default function Home() {
   const [experimentTabKey, setExperimentTabKey] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [filterStatus, setFilterStatus] = useState<Task["status"] | "all">("all");
+  const [taskSubTab, setTaskSubTab] = useState<"research" | "todo">("research");
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -381,6 +383,30 @@ export default function Home() {
 
         <div className="mt-4">
           {activeTab === "tasks" && (
+            <div>
+              {/* サブタブ */}
+              <div className="flex gap-2 mb-5 border-b pb-2">
+                <button
+                  onClick={() => setTaskSubTab("research")}
+                  className={`px-4 py-1.5 rounded-t text-sm font-medium transition-colors ${taskSubTab === "research" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  <FlaskConical className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  研究タスク
+                </button>
+                <button
+                  onClick={() => setTaskSubTab("todo")}
+                  className={`px-4 py-1.5 rounded-t text-sm font-medium transition-colors ${taskSubTab === "todo" ? "bg-blue-600 text-white" : "text-gray-500 hover:text-gray-700"}`}
+                >
+                  <List className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                  Todoリスト
+                </button>
+              </div>
+
+              {taskSubTab === "todo" && (
+                <TodoPanel authToken={session?.access_token} />
+              )}
+
+              {taskSubTab === "research" && (
             <div className="flex gap-4">
               {/* 左：タスク一覧 */}
               <div className="flex-1 min-w-0">
@@ -439,6 +465,8 @@ export default function Home() {
               <div className="w-80 flex-shrink-0">
                 <DashboardPanel tasks={tasks} />
               </div>
+            </div>
+              )}
             </div>
           )}
 
