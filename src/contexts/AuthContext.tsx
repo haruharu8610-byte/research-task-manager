@@ -35,9 +35,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendMagicLink = async (email: string) => {
+    const redirectTo = typeof window !== "undefined"
+      ? `${window.location.origin}/`
+      : "https://research-task-manager-one.vercel.app/";
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: true, emailRedirectTo: redirectTo },
     });
     return { error: error?.message ?? null };
   };
